@@ -178,31 +178,27 @@ elif role == "Administrateur Examens":
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("➕ Ajout Manuel")
     
-    with st.form("manual_exam_form"):
+    with st.form("manual_exam_form", border=False):
         col_f1, col_f2 = st.columns(2)
-        
-        # Load available options
         modules = load_data("SELECT id, nom FROM modules")
         rooms = load_data("SELECT id, nom FROM lieux_examen")
         profs = load_data("SELECT id, nom, prenom FROM professeurs")
         
         with col_f1:
             mod_choice = st.selectbox("Module", modules['nom'], key='m_sel')
-            date_choice = st.date_input("Date", datetime.date.today())
+            date_choice = st.date_input("Date", datetime.date.today(), key='d_sel_man')
             start_time = st.time_input("Heure Début", datetime.time(8, 30))
             
         with col_f2:
             room_choice = st.selectbox("Salle", rooms['nom'], key='r_sel')
-            prof_choice = st.selectbox("Surveillant", profs['nom'] + " " + profs['prenom'], key='p_sel')
+            prof_choice = st.selectbox("Surveillant", [f"{r['nom']} {r['prenom']}" for _,r in profs.iterrows()], key='p_sel')
             end_time = st.time_input("Heure Fin", datetime.time(10, 0))
             
         submitted = st.form_submit_button("Enregistrer l'Examen")
         
         if submitted:
-            # Resolve IDs
             m_id = modules[modules['nom'] == mod_choice].iloc[0]['id']
             r_id = rooms[rooms['nom'] == room_choice].iloc[0]['id']
-            # Simple prof resolution (assuming unique name combination for demo)
             p_id = profs[(profs['nom'] + " " + profs['prenom']) == prof_choice].iloc[0]['id']
             
             try:
@@ -214,56 +210,40 @@ elif role == "Administrateur Examens":
                 """, (int(m_id), int(p_id), int(r_id), str(date_choice), str(start_time), str(end_time)))
                 conn.commit()
                 conn.close()
-                st.success(f"Examen de {mod_choice} ajouté avec succès !")
+                st.success(f"Examen ajouté !")
             except Exception as e:
-                st.error(f"Erreur lors de l'ajout : {e}")
+                st.error(f"Erreur : {e}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("🛠️ Maintenance")
     with st.expander("Zone de Danger - Réinitialisation"):
-        st.error("Cette action supprimera toutes les données et recréera une base propre avec les derniers paramètres (ex: 50 professeurs).")
-        if st.button("🗑️ Réinitialiser et Re-générer les données"):
-            if os.path.exists(DB_PATH):
-                os.remove(DB_PATH)
-            conn = get_connection()
-            st.success("Base de données réinitialisée avec succès ! (50 professeurs chargés)")
+        st.error("Action irréversible.")
+        if st.button("🗑️ Réinitialiser la base"):
+            if os.path.exists(DB_PATH): os.remove(DB_PATH)
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("### Aperçu du Planning Généré")
-    # Using LEFT JOIN to ensure exams show up even if a relation is missing
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader("📊 Aperçu du Planning Global")
     df_exams = load_data("""
         SELECT 
-            e.date_examen, 
-            e.creneau_debut, 
-            e.creneau_fin, 
-            m.nom as module, 
-            s.nom as salle, 
-            p.nom as surveillant
+            e.date_examen, e.creneau_debut, e.creneau_fin, 
+            m.nom as module, s.nom as salle, p.nom as surveillant
         FROM examens e
         LEFT JOIN modules m ON e.module_id = m.id
         LEFT JOIN lieux_examen s ON e.salle_id = s.id
         LEFT JOIN professeurs p ON e.prof_surveillant_id = p.id
         ORDER BY e.date_examen, e.creneau_debut
     """)
-    
+    st.dataframe(df_exams, use_container_width=True)
     
     if not df_exams.empty:
-        st.caption(f"Total: {len(df_exams)} examens visibles")
-        
-        # Enhanced display: Group by Specialty
-        st.subheader("📅 Planning par Spécialité")
-        
-        # Get data with Formation info
+        # Specialty Tabs
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("🏁 Planning par Spécialité")
         df_full = load_data("""
-            SELECT 
-                f.nom as formation,
-                m.nom as module, 
-                e.date_examen, 
-                e.creneau_debut, 
-                e.creneau_fin, 
-                s.nom as salle, 
-                p.nom as surveillant
+            SELECT f.nom as formation, m.nom as module, e.date_examen, e.creneau_debut, e.creneau_fin, s.nom as salle, p.nom as surveillant
             FROM examens e
             LEFT JOIN modules m ON e.module_id = m.id
             LEFT JOIN formations f ON m.formation_id = f.id
@@ -272,24 +252,17 @@ elif role == "Administrateur Examens":
             ORDER BY f.nom, e.date_examen, e.creneau_debut
         """)
         
-        # Create tabs for each formation
         formations_list = df_full['formation'].unique()
         if len(formations_list) > 0:
             tabs = st.tabs([str(f) for f in formations_list])
-            
             for i, formation in enumerate(formations_list):
                 with tabs[i]:
-                    st.write(f"### {formation}")
                     subset = df_full[df_full['formation'] == formation].drop(columns=['formation'])
                     st.dataframe(subset, use_container_width=True)
-        else:
-            st.dataframe(df_exams, use_container_width=True)
-
-    else:
-        st.info("Aucun examen trouvé. Lancez l'optimisation ou ajoutez-en un manuellement.")
     
     csv = df_exams.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Exporter en CSV", csv, "planning.csv", "text/csv")
+    st.download_button("📥 Exporter en CSV", csv, f"planning_{datetime.date.today()}.csv", "text/csv")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- VIEW: Chef de Département ---
 elif role == "Chef de Département":
