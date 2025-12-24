@@ -190,19 +190,22 @@ elif role == "Administrateur Examens":
         formations = load_data("SELECT id, nom FROM formations")
         selected_formations = st.multiselect("Spécialités à inclure", formations['nom'], help="Laissez vide pour planifier toute la faculté.")
         
+        col_opt1, col_opt2 = st.columns(2)
+        with col_opt1:
+            append_mode = st.checkbox("➕ Mode Incremental", value=True, help="Ajouter les examens sans supprimer ceux déjà existants.")
+        
         submit_auto = st.form_submit_button("🚀 Lancer l'Optimisation")
     st.markdown('</div>', unsafe_allow_html=True)
     
     if submit_auto:
-        # ... logic ...
         formation_ids = []
         if selected_formations:
             formation_ids = formations[formations['nom'].isin(selected_formations)]['id'].tolist()
             
         with st.spinner("Calcul des meilleurs créneaux en cours..."):
             scheduler = ExamScheduler(DB_PATH)
-            nb_generated = scheduler.generate_schedule(start_date, end_date, formation_ids)
-        st.success(f"Opération réussie ! {nb_generated} examens ont été placés.")
+            nb_generated = scheduler.generate_schedule(start_date, end_date, formation_ids, append=append_mode)
+        st.success(f"Opération réussie ! {nb_generated} nouveaux examens ont été placés.")
         st.balloons()
     
     st.markdown('<div class="card">', unsafe_allow_html=True)

@@ -29,14 +29,40 @@ class ExamScheduler:
         # is already in another exam at THIS slot.
         return False # Placeholder for complex logic
 
-    def generate_schedule(self, start_date, end_date, formation_ids=None):
+    def generate_schedule(self, start_date, end_date, formation_ids=None, append=False):
         self.get_data()
         
-        schedule = [] 
+        # Load existing exams to avoid conflicts
+        existing_exams = pd.read_sql("SELECT * FROM examens", self.conn)
         
         # Trackers for constraints
         prof_total_load = {pid: 0 for pid in self.profs['id'].tolist()}
         student_daily_exam = {} # (student_id, date) -> bool
+        
+        # Current internal schedule (initially empty or existing for conflict checks)
+        internal_schedule = []
+        
+        # Populate trackers from existing exams
+        for _, ex in existing_exams.iterrows():
+            date_str = str(ex['date_examen'])
+            pid = ex['prof_surveillant_id']
+            mid = ex['module_id']
+            # Find students for this module
+            students = self.module_students.get(mid, [])
+            
+            prof_total_load[pid] = prof_total_load.get(pid, 0) + 1
+            for sid in students:
+                student_daily_exam[(sid, date_str)] = True
+            
+            internal_schedule.append({
+                'date': date_str,
+                'start': ex['creneau_debut'],
+                'room_id': ex['salle_id'],
+                'prof_id': pid,
+                'module_id': mid
+            })
+
+        new_exams = []
         
         # Calculate duration in days
         delta = (end_date - start_date).days + 1
@@ -62,6 +88,11 @@ class ExamScheduler:
             nb_students = self.module_counts.get(module_id, 0)
             if nb_students == 0: continue
             
+            # Skip if module already has an exam (optional, but good for "one by one" logic)
+            if any(s['module_id'] == module_id for s in internal_schedule):
+                print(f"Module {module_id} already scheduled, skipping.")
+                continue
+
             m_dept_id = self.modules[self.modules['id'] == module_id]['dept_id'].values[0]
             m_students = self.module_students.get(module_id, [])
             assigned = False
@@ -72,25 +103,22 @@ class ExamScheduler:
                 date_str = str(check_date)
                 
                 # CONSTRAINT: Étudiants : Maximum 1 examen par jour
-                # Check if ANY student in this module already has an exam on THIS date
                 student_conflict = False
                 for sid in m_students:
                     if student_daily_exam.get((sid, date_str)):
                         student_conflict = True
                         break
                 
-                if student_conflict:
-                    continue # Try next day
+                if student_conflict: continue
                 
                 for start_time, end_time in slots:
-                    # Find a room that fits and is free
                     fitting_rooms = self.rooms[self.rooms['capacite'] >= nb_students]
                     for _, room in fitting_rooms.iterrows():
                         room_id = room['id']
                         
                         # Check room availability
                         is_room_free = True
-                        for s in schedule:
+                        for s in internal_schedule:
                             if s['date'] == date_str and s['start'] == start_time and s['room_id'] == room_id:
                                 is_room_free = False
                                 break
@@ -98,45 +126,38 @@ class ExamScheduler:
                         if not is_room_free: continue
                         
                         # Pick a professor
-                        # PRIORITIES:
-                        # 1. Prof is free at this slot.
-                        # 2. Prof has < 3 exams today.
-                        # 3. Prof is in the same department (Priority).
-                        # 4. Fairness: Pick prof with least total load.
-                        
                         available_profs = []
                         for _, prof in self.profs.iterrows():
                             pid = prof['id']
                             
                             # Check slot availability
-                            if any(s['date'] == date_str and s['start'] == start_time and s['prof_id'] == pid for s in schedule):
+                            if any(s['date'] == date_str and s['start'] == start_time and s['prof_id'] == pid for s in internal_schedule):
                                 continue
                             
                             # Check daily limit (Max 3)
-                            daily_count = len([s for s in schedule if s['date'] == date_str and s['prof_id'] == pid])
-                            if daily_count >= 3:
-                                continue
+                            daily_count = len([s for s in internal_schedule if s['date'] == date_str and s['prof_id'] == pid])
+                            if daily_count >= 3: continue
                                 
                             available_profs.append(prof)
                         
                         if not available_profs: continue
                         
-                        # Sort by Priority (Dept Match) and Fairness (Total Load)
-                        # We want Dept Match = True first (descending), then Total Load ascending
                         available_profs.sort(key=lambda x: (x['dept_id'] == m_dept_id, -prof_total_load[x['id']]), reverse=True)
                         
                         selected_prof = available_profs[0]
                         pid = selected_prof['id']
                         
                         # ASSIGN
-                        schedule.append({
+                        exam_obj = {
                             'module_id': module_id,
-                            'room_id': room_id,
                             'prof_id': pid,
+                            'room_id': room_id,
                             'date': date_str,
                             'start': start_time,
                             'end': end_time
-                        })
+                        }
+                        new_exams.append(exam_obj)
+                        internal_schedule.append(exam_obj)
                         
                         # Update trackers
                         prof_total_load[pid] += 1
@@ -144,7 +165,7 @@ class ExamScheduler:
                             student_daily_exam[(sid, date_str)] = True
                             
                         assigned = True
-                        print(f"Assigned {module_id} to {room['nom']} with Prof {pid} on {date_str} {start_time}")
+                        print(f"Assigned {module_id} on {date_str}")
                         break
                     
                     if assigned: break
@@ -153,12 +174,14 @@ class ExamScheduler:
             if not assigned:
                 print(f"FAILED to assign module {module_id}")
 
-        self.save_schedule(schedule)
-        return len(schedule)
+        self.save_schedule(new_exams, append=append)
+        return len(new_exams)
 
-    def save_schedule(self, schedule):
-        self.cursor.execute("DELETE FROM examens")
-        for s in schedule:
+    def save_schedule(self, new_exams, append=False):
+        if not append:
+            self.cursor.execute("DELETE FROM examens")
+            
+        for s in new_exams:
             self.cursor.execute("""
                 INSERT INTO examens (module_id, prof_surveillant_id, salle_id, date_examen, creneau_debut, creneau_fin)
                 VALUES (?, ?, ?, ?, ?, ?)
