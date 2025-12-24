@@ -89,10 +89,9 @@ def get_connection():
         return conn
     return sqlite3.connect(DB_PATH)
 
-# Sidebar - Global Filter & Role
-st.sidebar.title("🏛️ Faculty Planner")
+# Sidebar - Filter & Faculty Logo
+st.sidebar.title("🏛️ Exam Manager")
 st.sidebar.markdown("---")
-role = st.sidebar.selectbox("🎯 Accès Portail", ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Étudiant / Professeur"])
 
 # Load depts for filter
 try:
@@ -101,7 +100,24 @@ try:
 except:
     depts_list = []
     
-selected_dept_filter = st.sidebar.selectbox("📂 Filtre Département (Vue Global)", ["TOUT"] + depts_list)
+selected_dept_filter = st.sidebar.selectbox("📂 Filtre Département View", ["TOUT"] + depts_list)
+st.sidebar.info("Utilisez ce filtre pour isoler les statistiques d'un département.")
+
+# --- NAVIGATION HEADER BAR (Top of Main Page) ---
+st.markdown("""
+    <div style="background-color: #ffffff; padding: 10px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0; text-align: center;">
+        <span style="color: #64748b; font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Portail de Gestion Académique</span>
+    </div>
+""", unsafe_allow_html=True)
+
+role = st.radio(
+    label="Navigation",
+    options=["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Étudiant / Professeur"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+st.markdown("---")
 
 # Helper functions
 def load_data(query):
