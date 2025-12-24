@@ -149,15 +149,28 @@ elif role == "Administrateur Examens":
 
     st.markdown("---")
     st.markdown("### Aperçu du Planning Généré")
+    # Using LEFT JOIN to ensure exams show up even if a relation is missing
     df_exams = load_data("""
-        SELECT m.nom as module, s.nom as salle, p.nom as surveillant, e.date_examen, e.creneau_debut 
+        SELECT 
+            e.date_examen, 
+            e.creneau_debut, 
+            e.creneau_fin, 
+            m.nom as module, 
+            s.nom as salle, 
+            p.nom as surveillant
         FROM examens e
-        JOIN modules m ON e.module_id = m.id
-        JOIN lieux_examen s ON e.salle_id = s.id
-        JOIN professeurs p ON e.prof_surveillant_id = p.id
+        LEFT JOIN modules m ON e.module_id = m.id
+        LEFT JOIN lieux_examen s ON e.salle_id = s.id
+        LEFT JOIN professeurs p ON e.prof_surveillant_id = p.id
         ORDER BY e.date_examen, e.creneau_debut
     """)
+    
     st.dataframe(df_exams, use_container_width=True)
+    
+    if not df_exams.empty:
+        st.caption(f"Total: {len(df_exams)} examens visibles")
+    else:
+        st.info("Aucun examen trouvé. Lancez l'optimisation ou ajoutez-en un manuellement.")
     
     csv = df_exams.to_csv(index=False).encode('utf-8')
     st.download_button("📥 Exporter en CSV", csv, "planning.csv", "text/csv")
