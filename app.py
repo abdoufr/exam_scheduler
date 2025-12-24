@@ -55,18 +55,22 @@ st.markdown("""
         letter-spacing: -0.01em;
     }
 
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-left: 1px solid var(--slate-200);
-        box-shadow: -4px 0 25px -5px rgb(0 0 0 / 0.05);
+    /* Sidebar Styling - Desktop Only (Right Side) */
+    @media (min-width: 992px) {
+        [data-testid="stSidebar"] {
+            background-color: #ffffff;
+            border-left: 1px solid var(--slate-200);
+            box-shadow: -4px 0 25px -5px rgb(0 0 0 / 0.05);
+        }
+        
+        section[data-testid="stSidebar"] {
+            order: 10;
+            right: 0;
+            left: auto;
+        }
     }
-    
-    section[data-testid="stSidebar"] {
-        order: 10;
-        right: 0;
-        left: auto;
-    }
+
+    /* Mobile Responsiveness moved to bottom of CSS to ensure overrides work */
 
     /* Cards & Components */
     .card {
@@ -141,6 +145,51 @@ st.markdown("""
     }
 
     .status-pill-success { background-color: #dcfce7; color: #166534; }
+
+    /* Mobile Responsiveness (Placed last to override other styles) */
+    @media (max-width: 991px) {
+        /* Force Sidebar back to left and standard behavior */
+        section[data-testid="stSidebar"] {
+            left: 0 !important;
+            right: auto !important;
+            top: 0 !important;
+            order: unset !important;
+        }
+        
+        .block-container {
+            padding: 2rem 1rem !important;
+            max-width: 100%;
+        }
+
+        h1 {
+            font-size: 2rem !important;
+            margin-bottom: 1.5rem !important;
+            text-align: center;
+        }
+        
+        h2, h3 {
+            margin-top: 1rem !important;
+        }
+
+        .card {
+            padding: 1.5rem !important;
+            margin-bottom: 1.5rem !important;
+            border-radius: 16px !important;
+        }
+        
+        .stMetric {
+            padding: 1rem !important;
+        }
+        
+        div[data-testid="stMetricValue"] {
+            font-size: 1.8rem !important;
+        }
+        
+        .stButton>button {
+            height: 3rem !important;
+            font-size: 0.9rem !important;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
