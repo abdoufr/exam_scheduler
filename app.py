@@ -82,7 +82,51 @@ elif role == "Administrateur Examens":
             nb_generated = scheduler.generate_schedule(datetime.date.today())
         st.success(f"Planning généré avec succès ! {nb_generated} examens placés.")
         st.balloons()
+    
+    st.markdown("---")
+    st.subheader("➕ Ajout Manuel d'un Examen")
+    
+    with st.form("manual_exam_form"):
+        col_f1, col_f2 = st.columns(2)
         
+        # Load available options
+        modules = load_data("SELECT id, nom FROM modules")
+        rooms = load_data("SELECT id, nom FROM lieux_examen")
+        profs = load_data("SELECT id, nom, prenom FROM professeurs")
+        
+        with col_f1:
+            mod_choice = st.selectbox("Module", modules['nom'], key='m_sel')
+            date_choice = st.date_input("Date", datetime.date.today())
+            start_time = st.time_input("Heure Début", datetime.time(8, 30))
+            
+        with col_f2:
+            room_choice = st.selectbox("Salle", rooms['nom'], key='r_sel')
+            prof_choice = st.selectbox("Surveillant", profs['nom'] + " " + profs['prenom'], key='p_sel')
+            end_time = st.time_input("Heure Fin", datetime.time(10, 0))
+            
+        submitted = st.form_submit_button("Enregistrer l'Examen")
+        
+        if submitted:
+            # Resolve IDs
+            m_id = modules[modules['nom'] == mod_choice].iloc[0]['id']
+            r_id = rooms[rooms['nom'] == room_choice].iloc[0]['id']
+            # Simple prof resolution (assuming unique name combination for demo)
+            p_id = profs[(profs['nom'] + " " + profs['prenom']) == prof_choice].iloc[0]['id']
+            
+            try:
+                conn = get_connection()
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO examens (module_id, prof_surveillant_id, salle_id, date_examen, creneau_debut, creneau_fin)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (int(m_id), int(p_id), int(r_id), str(date_choice), str(start_time), str(end_time)))
+                conn.commit()
+                conn.close()
+                st.success(f"Examen de {mod_choice} ajouté avec succès !")
+            except Exception as e:
+                st.error(f"Erreur lors de l'ajout : {e}")
+
+    st.markdown("---")
     st.markdown("### Aperçu du Planning Généré")
     df_exams = load_data("""
         SELECT m.nom as module, s.nom as salle, p.nom as surveillant, e.date_examen, e.creneau_debut 
