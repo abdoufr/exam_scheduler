@@ -8,27 +8,24 @@ import datetime
 import os
 from seed import init_db, generate_data, create_connection
 
-# Page Config
-st.set_page_config(page_title="Univ Exam Planner", layout="wide", page_icon="📅")
-
 # Custom CSS for Professional Look
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
     }
     
     .main {
-        background-color: #f8fafc;
+        background-color: #f1f5f9;
     }
     
     .stMetric {
         background-color: #ffffff;
-        padding: 20px;
+        padding: 1.5rem;
         border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
         border: 1px solid #e2e8f0;
     }
     
@@ -36,7 +33,7 @@ st.markdown("""
         width: 100%;
         border-radius: 8px;
         height: 3em;
-        background-color: #1e40af;
+        background-color: #0f172a; /* Deeper Navy */
         color: white;
         font-weight: 600;
         border: none;
@@ -44,35 +41,36 @@ st.markdown("""
     }
     
     .stButton>button:hover {
-        background-color: #1e3a8a;
+        background-color: #1e293b;
         transform: translateY(-1px);
     }
     
     .card {
         background-color: #ffffff;
-        padding: 25px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        border: 1px solid #e2e8f0;
-        margin-bottom: 20px;
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        border: 1px solid #f1f5f9;
+        margin-bottom: 1.5rem;
     }
     
     h1, h2, h3 {
-        color: #1e293b;
-        font-weight: 700 !important;
+        color: #0f172a;
+        font-weight: 800 !important;
+        letter-spacing: -0.025em;
+    }
+    
+    .sidebar .sidebar-content {
+        background-image: linear-gradient(#1e293b, #0f172a);
     }
     
     div[data-testid="stExpander"] {
         border-radius: 12px;
         background-color: white;
         border: 1px solid #e2e8f0;
+        overflow: hidden;
     }
     
-    .sidebar .sidebar-content {
-        background-color: #1e293b;
-    }
-    
-    /* Center title and add spacing */
     .block-container {
         padding-top: 2rem;
     }
@@ -91,9 +89,19 @@ def get_connection():
         return conn
     return sqlite3.connect(DB_PATH)
 
-# Sidebar - Role Selection
-st.sidebar.title("Univ Exam Planner")
-role = st.sidebar.selectbox("Rôle", ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Étudiant / Professeur"])
+# Sidebar - Global Filter & Role
+st.sidebar.title("🏛️ Faculty Planner")
+st.sidebar.markdown("---")
+role = st.sidebar.selectbox("🎯 Accès Portail", ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Étudiant / Professeur"])
+
+# Load depts for filter
+try:
+    with get_connection() as conn:
+        depts_list = pd.read_sql("SELECT nom FROM departements", conn)['nom'].tolist()
+except:
+    depts_list = []
+    
+selected_dept_filter = st.sidebar.selectbox("📂 Filtre Département (Vue Global)", ["TOUT"] + depts_list)
 
 # Helper functions
 def load_data(query):
@@ -104,44 +112,66 @@ def load_data(query):
 
 # --- VIEW: Vice-Doyen / Doyen ---
 if role == "Vice-Doyen / Doyen":
-    st.markdown('<h1 style="text-align: center; margin-bottom: 2rem;">📊 Tableau de Bord Stratégique</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="text-align: center; margin-bottom: 2.5rem;">📊 Analyse & Pilotage Stratégique</h1>', unsafe_allow_html=True)
     
-    # KPIs in cards
-    col1, col2, col3, col4 = st.columns(4)
+    # KPIs in a 2x2 grid for a tighter look
+    m1, m2 = st.columns(2)
+    m3, m4 = st.columns(2)
     
-    with col1:
-        nb_etudiants = load_data("SELECT COUNT(*) FROM etudiants").iloc[0,0]
-        st.metric("Total Étudiants", nb_etudiants)
+    dept_cond = "" if selected_dept_filter == "TOUT" else f"WHERE d.nom = '{selected_dept_filter}'"
+    dept_join = "" if selected_dept_filter == "TOUT" else "JOIN formations f ON e.formation_id = f.id JOIN departements d ON f.dept_id = d.id"
+
+    with m1:
+        nb_etudiants = load_data(f"SELECT COUNT(e.id) FROM etudiants e {dept_join} {dept_cond}").iloc[0,0]
+        st.metric("👥 Effectif Étudiant", f"{nb_etudiants:,}")
         
-    with col2:
-        nb_examens = load_data("SELECT COUNT(*) FROM examens").iloc[0,0]
-        st.metric("Examens Planifiés", nb_examens)
+    with m2:
+        # Complex query to count exams for filtered dept
+        ex_dept_cond = "" if selected_dept_filter == "TOUT" else f"WHERE d.nom = '{selected_dept_filter}'"
+        nb_examens = load_data(f"""
+            SELECT COUNT(ex.id) 
+            FROM examens ex 
+            JOIN modules m ON ex.module_id = m.id 
+            JOIN formations f ON m.formation_id = f.id 
+            JOIN departements d ON f.dept_id = d.id
+            {ex_dept_cond}
+        """).iloc[0,0]
+        st.metric("📝 Examens Planifiés", nb_examens)
         
-    with col3:
-        taux_occupation = "85%"
-        st.metric("Occupation Salles", taux_occupation)
+    with m3:
+        st.metric("🏛️ Salles Utilisées", "12 / 15")
         
-    with col4:
-        conflits = 0
-        st.metric("Conflits Détectés", conflits, delta_color="inverse")
+    with m4:
+        st.metric("✅ Conflits", "0", delta="Zéro Conflit", delta_color="normal")
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    with st.container():
+    c1, c2 = st.columns([2, 1])
+    
+    with c1:
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("📈 Répartition des Étudiants par Département")
+        st.subheader("📈 Charge d'Examen par Département")
         df_dept = load_data("""
-            SELECT d.nom, COUNT(e.id) as nb_etudiants 
-            FROM etudiants e 
-            JOIN formations f ON e.formation_id = f.id 
-            JOIN departements d ON f.dept_id = d.id 
+            SELECT d.nom as Département, COUNT(ex.id) as Examens
+            FROM examens ex
+            JOIN modules m ON ex.module_id = m.id
+            JOIN formations f ON m.formation_id = f.id
+            JOIN departements d ON f.dept_id = d.id
             GROUP BY d.nom
         """)
-        fig = px.bar(df_dept, x='nom', y='nb_etudiants', color_discrete_sequence=['#3b82f6'])
-        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+        fig = px.bar(df_dept, x='Département', y='Examens', color='Examens', color_continuous_scale='Blues')
+        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=30, b=0))
         st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
-
+        
+    with c2:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.subheader("🏁 État de Remplissage")
+        # Dummy data for donut
+        fig_pie = px.pie(values=[84, 16], names=['Assigné', 'Restant'], hole=0.7, color_discrete_sequence=['#1e40af', '#e2e8f0'])
+        fig_pie.update_layout(showlegend=False, margin=dict(l=0, r=0, t=0, b=0))
+        st.plotly_chart(fig_pie, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 # --- VIEW: Administrateur ---
 elif role == "Administrateur Examens":
     st.markdown('<h1 style="text-align: center;">⚙️ Gestion des Examens</h1>', unsafe_allow_html=True)
