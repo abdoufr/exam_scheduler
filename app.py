@@ -76,11 +76,32 @@ elif role == "Administrateur Examens":
     
     st.warning("⚠️ Zone réservée à la planification")
     
-    if st.button("🚀 Lancer l'Optimisation Automatique"):
-        with st.spinner("Calcul en cours (Algorithme Glouton)..."):
+    st.subheader("🗓️ Génération Automatique")
+    
+    with st.form("auto_schedule_form"):
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            start_date = st.date_input("Date de début des examens", datetime.date.today())
+        with col_d2:
+            end_date = st.date_input("Date de fin des examens", datetime.date.today() + datetime.timedelta(days=5))
+            
+        formations = load_data("SELECT id, nom FROM formations")
+        # Multiselect for specialties
+        selected_formations = st.multiselect("Sélectionner les Spécialités (Laisser vide pour TOUT inclure)", formations['nom'])
+        
+        submit_auto = st.form_submit_button("🚀 Lancer l'Optimisation")
+    
+    if submit_auto:
+        # Get IDs from names
+        formation_ids = []
+        if selected_formations:
+            formation_ids = formations[formations['nom'].isin(selected_formations)]['id'].tolist()
+            
+        with st.spinner("Calcul en cours avec filtrage..."):
             scheduler = ExamScheduler(DB_PATH)
-            nb_generated = scheduler.generate_schedule(datetime.date.today())
-        st.success(f"Planning généré avec succès ! {nb_generated} examens placés.")
+            # Assuming optimize method signature: generate_schedule(start_date, end_date, formation_ids)
+            nb_generated = scheduler.generate_schedule(start_date, end_date, formation_ids)
+        st.success(f"Planning généré avec succès ! {nb_generated} examens placés entre le {start_date} et le {end_date}.")
         st.balloons()
     
     st.markdown("---")

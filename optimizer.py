@@ -23,10 +23,14 @@ class ExamScheduler:
         # is already in another exam at THIS slot.
         return False # Placeholder for complex logic
 
-    def generate_schedule(self, start_date, days=5):
+    def generate_schedule(self, start_date, end_date, formation_ids=None):
         self.get_data()
         
-        schedule = [] # List of tuples (module_id, room_id, prof_id, date, slot)
+        schedule = [] 
+        
+        # Calculate duration in days
+        delta = (end_date - start_date).days + 1
+        if delta < 1: delta = 1
         
         # Exam slots per day: 08:30-10:00, 10:30-12:00, 13:00-14:30, 15:00-16:30
         slots = [
@@ -37,9 +41,14 @@ class ExamScheduler:
         ]
         
         current_date = start_date
-        slot_idx = 0
         
-        sorted_modules = sorted(self.modules['id'].tolist(), key=lambda x: self.module_counts.get(x, 0), reverse=True)
+        # Filter modules if formations are selected
+        all_modules = self.modules
+        if formation_ids and len(formation_ids) > 0:
+            # If "All" is not in list (passed as empty or specific ids)
+             all_modules = self.modules[self.modules['formation_id'].isin(formation_ids)]
+        
+        sorted_modules = sorted(all_modules['id'].tolist(), key=lambda x: self.module_counts.get(x, 0), reverse=True)
         
         for module_id in sorted_modules:
             nb_students = self.module_counts.get(module_id, 0)
@@ -53,7 +62,7 @@ class ExamScheduler:
             # Here: Greedy approach
             
             # Simple heuristic: Just pick the next available slot/room that fits
-            for day_offset in range(days):
+            for day_offset in range(delta):
                 check_date = current_date + datetime.timedelta(days=day_offset)
                 
                 for start_time, end_time in slots:
