@@ -8,7 +8,7 @@ fake = Faker('fr_FR')
 # Configuration
 NUM_DEPTS = 7
 NUM_STUDENTS = 200  # Small for demo speed (User asked for 13k scale, but we start small for dev)
-NUM_PROFS = 20
+NUM_PROFS = 50
 NUM_ROOMS = 10
 
 DB_NAME = "exams.db"

@@ -85,21 +85,39 @@ class ExamScheduler:
                                 break
                         
                         if is_room_free:
-                            # Assign
-                            # Ideally pick a prof who is free
-                            prof_id = self.profs.iloc[0]['id'] # simplistic assignment
+                            # Assign a professor
+                            # Constraint: Professor must be free at this slot
+                            selected_prof_id = None
                             
-                            schedule.append({
-                                'module_id': module_id,
-                                'room_id': room_id,
-                                'prof_id': prof_id,
-                                'date': str(check_date),
-                                'start': start_time,
-                                'end': end_time
-                            })
-                            assigned = True
-                            print(f"Assigned Module {module_id} to {room['nom']} on {check_date} {start_time}")
-                            break
+                            # Shuffle profs to distribute load randomly
+                            shuffled_profs = self.profs.sample(frac=1).reset_index(drop=True)
+                            
+                            for _, prof in shuffled_profs.iterrows():
+                                pid = prof['id']
+                                is_prof_free = True
+                                for s in schedule:
+                                    if s['date'] == str(check_date) and s['start'] == start_time and s['prof_id'] == pid:
+                                        is_prof_free = False
+                                        break
+                                
+                                if is_prof_free:
+                                    selected_prof_id = pid
+                                    break
+                            
+                            if selected_prof_id:
+                                schedule.append({
+                                    'module_id': module_id,
+                                    'room_id': room_id,
+                                    'prof_id': selected_prof_id,
+                                    'date': str(check_date),
+                                    'start': start_time,
+                                    'end': end_time
+                                })
+                                assigned = True
+                                print(f"Assigned Module {module_id} to {room['nom']} with Prof {selected_prof_id} on {check_date} {start_time}")
+                                break
+                            else:
+                                print(f"Warning: No professor available for slot {check_date} {start_time}")
                     if assigned:
                         break
                 if assigned:
