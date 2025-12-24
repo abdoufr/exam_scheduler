@@ -5,6 +5,9 @@ import plotly.express as px
 from optimizer import ExamScheduler
 import datetime
 
+import os
+from seed import init_db, generate_data, create_connection
+
 # Page Config
 st.set_page_config(page_title="Univ Exam Planner", layout="wide", page_icon="ðŸ“…")
 
@@ -12,6 +15,12 @@ st.set_page_config(page_title="Univ Exam Planner", layout="wide", page_icon="ðŸ“
 DB_PATH = "exams.db"
 
 def get_connection():
+    # Auto-initialize DB if it doesn't exist (useful for Streamlit Cloud)
+    if not os.path.exists(DB_PATH):
+        conn = sqlite3.connect(DB_PATH)
+        init_db(conn)
+        generate_data(conn)
+        return conn
     return sqlite3.connect(DB_PATH)
 
 # Sidebar - Role Selection
