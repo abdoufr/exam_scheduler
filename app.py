@@ -55,20 +55,7 @@ st.markdown("""
         letter-spacing: -0.01em;
     }
 
-    /* Sidebar Styling - Desktop Only (Right Side) */
-    @media (min-width: 992px) {
-        [data-testid="stSidebar"] {
-            background-color: #ffffff;
-            border-left: 1px solid var(--slate-200);
-            box-shadow: -4px 0 25px -5px rgb(0 0 0 / 0.05);
-        }
-        
-        section[data-testid="stSidebar"] {
-            order: 10;
-            right: 0;
-            left: auto;
-        }
-    }
+    /* Sidebar Styles Removed */
 
     /* Mobile Responsiveness moved to bottom of CSS to ensure overrides work */
 
@@ -148,14 +135,6 @@ st.markdown("""
 
     /* Mobile Responsiveness (Placed last to override other styles) */
     @media (max-width: 991px) {
-        /* Force Sidebar back to left and standard behavior */
-        section[data-testid="stSidebar"] {
-            left: 0 !important;
-            right: auto !important;
-            top: 0 !important;
-            order: unset !important;
-        }
-        
         .block-container {
             padding: 2rem 1rem !important;
             max-width: 100%;
@@ -224,35 +203,37 @@ def get_connection():
         
     return conn
 
-# --- SIDEBAR (Now on the Right) ---
-with st.sidebar:
-    # Branding
-    st.markdown("""
-        <div style="text-align: center; padding: 1.5rem 0; border-bottom: 2px solid #f1f5f9; margin-bottom: 2rem;">
-            <div style="font-size: 1.2rem; font-weight: 800; color: #1e1b4b; letter-spacing: -1px; line-height: 1.2;">
-                🏛️ UMBB <span style="color: #4338ca;">SCHED PRO</span>
-            </div>
-            <div style="font-size: 0.65rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 0.4rem; letter-spacing: 0.5px;">
-                Univ. M'Hamed Bougara
-            </div>
+# --- HEADER & NAVIGATION (Moved from Sidebar) ---
+# Branding
+st.markdown("""
+    <div style="text-align: center; padding: 1rem 0; margin-bottom: 2rem;">
+        <div style="font-size: 1.5rem; font-weight: 800; color: #1e1b4b; letter-spacing: -1px; line-height: 1.2;">
+            🏛️ UMBB <span style="color: #4338ca;">SCHED PRO</span>
         </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown('<h3 style="text-align: center; color: #1e1b4b; margin-bottom: 1rem;">🔐 Authentification</h3>', unsafe_allow_html=True)
-    
+        <div style="font-size: 0.8rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 0.4rem; letter-spacing: 0.5px;">
+            Univ. M'Hamed Bougara - Système de Planification v1.0
+        </div>
+    </div>
+""", unsafe_allow_html=True)
+
+# Navigation Controls
+with st.container():
     # Callback to clear auth when role is switched
     def handle_logout():
         for key in list(st.session_state.keys()):
             if key.startswith("auth_"):
                 st.session_state[key] = False
 
-    role = st.selectbox(
-        "🎯 Portails d'Accès", 
-        ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Professeur", "Étudiant"],
-        index=4, # Default to public Student view
-        on_change=handle_logout
-    )
+    col_nav1, col_nav2 = st.columns([1, 2])
     
+    with col_nav1:
+        role = st.selectbox(
+            "🎯 Portails d'Accès", 
+            ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Professeur", "Étudiant"],
+            index=4, # Default to public Student view
+            on_change=handle_logout
+        )
+
     # PASSWORDS
     PASSWORDS = {
         "Vice-Doyen / Doyen": "doyen123",
@@ -261,47 +242,50 @@ with st.sidebar:
         "Professeur": "prof123",
     }
     
-    # Authentication Check
+    # Authentication Check & Filters
     is_authenticated = False
-    if role == "Étudiant":
-        is_authenticated = True
-    else:
-        if f'auth_{role}' not in st.session_state:
-            st.session_state[f'auth_{role}'] = False
-        
-        if not st.session_state[f'auth_{role}']:
-            st.markdown(f"**Authentification : {role}**")
-            pwd_input = st.text_input("Mot de passe", type="password")
-            if st.button("Se connecter"):
-                if pwd_input == PASSWORDS.get(role):
-                    st.session_state[f'auth_{role}'] = True
-                    st.success("Accès autorisé !")
-                    st.rerun()
-                else:
-                    st.error("Mot de passe incorrect.")
-        
-        is_authenticated = st.session_state.get(f'auth_{role}', False)
-
-    st.markdown("---")
     
-    if is_authenticated:
-        st.markdown('<h2 style="color: white; text-align: center;">📂 Filtres</h2>', unsafe_allow_html=True)
-        # Load depts for filter
-        try:
-            with get_connection() as conn:
-                facs_list = pd.read_sql("SELECT nom FROM departements", conn)['nom'].tolist()
-        except:
-            facs_list = []
-            
-        selected_fac_filter = st.selectbox("Faculté / Institut", ["TOUTE L'UNIVERSITÉ"] + facs_list)
-        
-        if role != "Étudiant":
-            if st.button("Déconnexion"):
+    with col_nav2:
+        if role == "Étudiant":
+            is_authenticated = True
+            st.info("👋 Bienvenue sur l'espace étudiant.")
+        else:
+            if f'auth_{role}' not in st.session_state:
                 st.session_state[f'auth_{role}'] = False
-                st.rerun()
+            
+            if not st.session_state[f'auth_{role}']:
+                c_auth1, c_auth2 = st.columns([2, 1])
+                with c_auth1:
+                    pwd_input = st.text_input("Mot de passe", type="password", label_visibility="collapsed", placeholder="Saisir le mot de passe...")
+                with c_auth2:
+                    if st.button("Se connecter"):
+                        if pwd_input == PASSWORDS.get(role):
+                            st.session_state[f'auth_{role}'] = True
+                            st.rerun()
+                        else:
+                            st.error("Mot de passe incorrect.")
+            else:
+                is_authenticated = True
+                
+        # Filters (Only if authenticated)
+        if is_authenticated:
+            # Load depts for filter
+            try:
+                with get_connection() as conn:
+                    facs_list = pd.read_sql("SELECT nom FROM departements", conn)['nom'].tolist()
+            except:
+                facs_list = []
+                
+            c_logout, c_filter = st.columns([1, 2])
+            with c_logout:
+                if role != "Étudiant":
+                     if st.button("Déconnexion"):
+                        st.session_state[f'auth_{role}'] = False
+                        st.rerun()
+            with c_filter:
+                selected_fac_filter = st.selectbox("Filtre Faculté", ["TOUTE L'UNIVERSITÉ"] + facs_list, label_visibility="collapsed")
 
-    st.markdown("---")
-    st.caption("Université - Système de Planification v1.0")
+st.markdown("---")
 
 # --- MAIN CONTENT AREA ---
 st.markdown("""
@@ -672,5 +656,5 @@ elif role == "Étudiant":
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Footer
-st.sidebar.markdown("---")
-st.sidebar.caption("Université - Système de Planification v1.0")
+# Footer
+# Sidebar footer removed
