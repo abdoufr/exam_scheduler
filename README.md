@@ -38,8 +38,15 @@ psql -U votre_user -d votre_db -f schema.sql
 
 ## Lancer l'Application
 
+### Méthode standard (si Python est dans le PATH)
 ```bash
 streamlit run app.py
+```
+
+### Méthode spécifique (PowerShell Windows)
+Si la commande ci-dessus ne fonctionne pas, utilisez le chemin complet :
+```powershell
+& "C:\Program Files\Python311\python.exe" -m streamlit run app.py
 ```
 
 ## Fonctionnalités
