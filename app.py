@@ -92,22 +92,58 @@ def get_connection():
 
 # --- SIDEBAR (Now on the Right) ---
 with st.sidebar:
-    st.markdown('<h2 style="color: white; text-align: center;">⚙️ Contrôles</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="color: white; text-align: center;">🔒 Connexion</h2>', unsafe_allow_html=True)
     st.markdown("---")
     
     role = st.selectbox("🎯 Accès Portail", ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Étudiant / Professeur"])
     
-    st.markdown("<br>", unsafe_allow_html=True)
+    # PASSWORDS
+    PASSWORDS = {
+        "Vice-Doyen / Doyen": "doyen123",
+        "Administrateur Examens": "admin123",
+        "Chef de Département": "chef123",
+    }
     
-    # Load depts for filter
-    try:
-        with get_connection() as conn:
-            depts_list = pd.read_sql("SELECT nom FROM departements", conn)['nom'].tolist()
-    except:
-        depts_list = []
+    # Authentication Check
+    is_authenticated = False
+    if role == "Étudiant / Professeur":
+        is_authenticated = True
+    else:
+        # Initialize session state for auth
+        if f'auth_{role}' not in st.session_state:
+            st.session_state[f'auth_{role}'] = False
         
-    selected_dept_filter = st.selectbox("📂 Filtre Département", ["TOUT"] + depts_list)
+        if not st.session_state[f'auth_{role}']:
+            st.markdown(f"**Veuillez entrer le mot de passe pour {role}**")
+            pwd_input = st.text_input("Mot de passe", type="password")
+            if st.button("Se connecter"):
+                if pwd_input == PASSWORDS.get(role):
+                    st.session_state[f'auth_{role}'] = True
+                    st.success("Accès autorisé !")
+                    st.rerun()
+                else:
+                    st.error("Mot de passe incorrect.")
+        
+        is_authenticated = st.session_state.get(f'auth_{role}', False)
+
+    st.markdown("---")
     
+    if is_authenticated:
+        st.markdown('<h2 style="color: white; text-align: center;">📂 Filtres</h2>', unsafe_allow_html=True)
+        # Load depts for filter
+        try:
+            with get_connection() as conn:
+                depts_list = pd.read_sql("SELECT nom FROM departements", conn)['nom'].tolist()
+        except:
+            depts_list = []
+            
+        selected_dept_filter = st.selectbox("Département", ["TOUT"] + depts_list)
+        
+        if role != "Étudiant / Professeur":
+            if st.button("Déconnexion"):
+                st.session_state[f'auth_{role}'] = False
+                st.rerun()
+
     st.markdown("---")
     st.caption("Université - Système de Planification v1.0")
 
@@ -124,6 +160,12 @@ def load_data(query):
     df = pd.read_sql(query, conn)
     conn.close()
     return df
+
+if not is_authenticated:
+    st.markdown('<div class="card" style="text-align: center;">', unsafe_allow_html=True)
+    st.warning("⚠️ Cet espace est protégé. Veuillez vous authentifier via la barre latérale pour accéder aux données.")
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
 
 # --- VIEW: Vice-Doyen / Doyen ---
 if role == "Vice-Doyen / Doyen":
