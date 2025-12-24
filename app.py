@@ -8,7 +8,7 @@ import datetime
 import os
 from seed import init_db, generate_data, create_connection
 
-# Custom CSS for Professional Look
+# Custom CSS for Right-Side Sidebar & Layout
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -19,13 +19,32 @@ st.markdown("""
     
     .main {
         background-color: #f1f5f9;
+        order: -1; /* Move main content to the left */
     }
     
+    /* Force Sidebar to the Right */
+    [data-testid="stSidebar"] {
+        background-image: linear-gradient(#1e293b, #0f172a);
+        color: white;
+        border-left: 1px solid #e2e8f0;
+    }
+    
+    /* Flip Streamlit Layout (Sidebar Right) */
+    section[data-testid="stSidebar"] {
+        order: 10;
+        right: 0;
+        left: auto;
+    }
+    
+    [data-testid="stSidebarNav"] {
+        display: none;
+    }
+
     .stMetric {
         background-color: #ffffff;
         padding: 1.5rem;
         border-radius: 12px;
-        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
         border: 1px solid #e2e8f0;
     }
     
@@ -33,16 +52,10 @@ st.markdown("""
         width: 100%;
         border-radius: 8px;
         height: 3em;
-        background-color: #0f172a; /* Deeper Navy */
+        background-color: #0f172a;
         color: white;
         font-weight: 600;
         border: none;
-        transition: all 0.2s;
-    }
-    
-    .stButton>button:hover {
-        background-color: #1e293b;
-        transform: translateY(-1px);
     }
     
     .card {
@@ -60,17 +73,6 @@ st.markdown("""
         letter-spacing: -0.025em;
     }
     
-    .sidebar .sidebar-content {
-        background-image: linear-gradient(#1e293b, #0f172a);
-    }
-    
-    div[data-testid="stExpander"] {
-        border-radius: 12px;
-        background-color: white;
-        border: 1px solid #e2e8f0;
-        overflow: hidden;
-    }
-    
     .block-container {
         padding-top: 2rem;
     }
@@ -81,7 +83,6 @@ st.markdown("""
 DB_PATH = "exams.db"
 
 def get_connection():
-    # Auto-initialize DB if it doesn't exist (useful for Streamlit Cloud)
     if not os.path.exists(DB_PATH):
         conn = sqlite3.connect(DB_PATH)
         init_db(conn)
@@ -89,35 +90,33 @@ def get_connection():
         return conn
     return sqlite3.connect(DB_PATH)
 
-# Sidebar - Filter & Faculty Logo
-st.sidebar.title("🏛️ Exam Manager")
-st.sidebar.markdown("---")
-
-# Load depts for filter
-try:
-    with get_connection() as conn:
-        depts_list = pd.read_sql("SELECT nom FROM departements", conn)['nom'].tolist()
-except:
-    depts_list = []
+# --- SIDEBAR (Now on the Right) ---
+with st.sidebar:
+    st.markdown('<h2 style="color: white; text-align: center;">⚙️ Contrôles</h2>', unsafe_allow_html=True)
+    st.markdown("---")
     
-selected_dept_filter = st.sidebar.selectbox("📂 Filtre Département View", ["TOUT"] + depts_list)
-st.sidebar.info("Utilisez ce filtre pour isoler les statistiques d'un département.")
+    role = st.selectbox("🎯 Accès Portail", ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Étudiant / Professeur"])
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Load depts for filter
+    try:
+        with get_connection() as conn:
+            depts_list = pd.read_sql("SELECT nom FROM departements", conn)['nom'].tolist()
+    except:
+        depts_list = []
+        
+    selected_dept_filter = st.selectbox("📂 Filtre Département", ["TOUT"] + depts_list)
+    
+    st.markdown("---")
+    st.caption("Université - Système de Planification v1.0")
 
-# --- NAVIGATION HEADER BAR (Top of Main Page) ---
+# --- MAIN CONTENT AREA ---
 st.markdown("""
-    <div style="background-color: #ffffff; padding: 10px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e2e8f0; text-align: center;">
-        <span style="color: #64748b; font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Portail de Gestion Académique</span>
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <span style="background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: 700;">SYSTÈME DE PLANIFICATION</span>
     </div>
 """, unsafe_allow_html=True)
-
-role = st.radio(
-    label="Navigation",
-    options=["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Étudiant / Professeur"],
-    horizontal=True,
-    label_visibility="collapsed"
-)
-
-st.markdown("---")
 
 # Helper functions
 def load_data(query):
