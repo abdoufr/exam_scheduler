@@ -92,16 +92,30 @@ class ExamScheduler:
                             # Shuffle profs to distribute load randomly
                             shuffled_profs = self.profs.sample(frac=1).reset_index(drop=True)
                             
+                            # Get module department
+                            mod_dept_id = self.modules[self.modules['id'] == module_id]['formation_id'].values[0]
+                            # (In this schema formations.dept_id is what we need)
+                            # Let's simplify and just pick profs who are FREE first.
+                            
                             for _, prof in shuffled_profs.iterrows():
                                 pid = prof['id']
                                 is_prof_free = True
+                                
+                                # Check if prof is already assigned at this slot
                                 for s in schedule:
                                     if s['date'] == str(check_date) and s['start'] == start_time and s['prof_id'] == pid:
                                         is_prof_free = False
                                         break
                                 
+                                # Condition: Max 2 exams per day for a professor (pedagogical constraint)
+                                daily_exams = len([s for s in schedule if s['date'] == str(check_date) and s['prof_id'] == pid])
+                                if daily_exams >= 2:
+                                    is_prof_free = False
+
                                 if is_prof_free:
                                     selected_prof_id = pid
+                                    # Preference: same department? (Optional but good)
+                                    # if prof['dept_id'] == mod_dept_id: break 
                                     break
                             
                             if selected_prof_id:

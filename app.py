@@ -148,6 +148,17 @@ elif role == "Administrateur Examens":
                 st.error(f"Erreur lors de l'ajout : {e}")
 
     st.markdown("---")
+    st.subheader("🛠️ Maintenance")
+    with st.expander("Zone de Danger - Réinitialisation"):
+        st.error("Cette action supprimera toutes les données et recréera une base propre avec les derniers paramètres (ex: 50 professeurs).")
+        if st.button("🗑️ Réinitialiser et Re-générer les données"):
+            if os.path.exists(DB_PATH):
+                os.remove(DB_PATH)
+            conn = get_connection()
+            st.success("Base de données réinitialisée avec succès ! (50 professeurs chargés)")
+            st.rerun()
+
+    st.markdown("---")
     st.markdown("### Aperçu du Planning Généré")
     # Using LEFT JOIN to ensure exams show up even if a relation is missing
     df_exams = load_data("""
