@@ -95,7 +95,18 @@ with st.sidebar:
     st.markdown('<h2 style="color: white; text-align: center;">🔒 Connexion</h2>', unsafe_allow_html=True)
     st.markdown("---")
     
-    role = st.selectbox("🎯 Accès Portail", ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Professeur", "Étudiant"])
+    # Callback to clear auth when role is switched
+    def handle_logout():
+        for key in list(st.session_state.keys()):
+            if key.startswith("auth_"):
+                st.session_state[key] = False
+
+    role = st.selectbox(
+        "🎯 Accès Portail", 
+        ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Professeur", "Étudiant"],
+        index=4, # Default to public Student view
+        on_change=handle_logout
+    )
     
     # PASSWORDS
     PASSWORDS = {
@@ -110,7 +121,6 @@ with st.sidebar:
     if role == "Étudiant":
         is_authenticated = True
     else:
-        # Initialize session state for auth
         if f'auth_{role}' not in st.session_state:
             st.session_state[f'auth_{role}'] = False
         
