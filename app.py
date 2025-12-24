@@ -95,18 +95,19 @@ with st.sidebar:
     st.markdown('<h2 style="color: white; text-align: center;">🔒 Connexion</h2>', unsafe_allow_html=True)
     st.markdown("---")
     
-    role = st.selectbox("🎯 Accès Portail", ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Étudiant / Professeur"])
+    role = st.selectbox("🎯 Accès Portail", ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Professeur", "Étudiant"])
     
     # PASSWORDS
     PASSWORDS = {
         "Vice-Doyen / Doyen": "doyen123",
         "Administrateur Examens": "admin123",
         "Chef de Département": "chef123",
+        "Professeur": "prof123",
     }
     
     # Authentication Check
     is_authenticated = False
-    if role == "Étudiant / Professeur":
+    if role == "Étudiant":
         is_authenticated = True
     else:
         # Initialize session state for auth
@@ -114,7 +115,7 @@ with st.sidebar:
             st.session_state[f'auth_{role}'] = False
         
         if not st.session_state[f'auth_{role}']:
-            st.markdown(f"**Veuillez entrer le mot de passe pour {role}**")
+            st.markdown(f"**Authentification : {role}**")
             pwd_input = st.text_input("Mot de passe", type="password")
             if st.button("Se connecter"):
                 if pwd_input == PASSWORDS.get(role):
@@ -139,7 +140,7 @@ with st.sidebar:
             
         selected_dept_filter = st.selectbox("Département", ["TOUT"] + depts_list)
         
-        if role != "Étudiant / Professeur":
+        if role != "Étudiant":
             if st.button("Déconnexion"):
                 st.session_state[f'auth_{role}'] = False
                 st.rerun()
@@ -387,56 +388,52 @@ elif role == "Chef de Département":
         st.dataframe(df_dept_exams, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- VIEW: Étudiant / Professeur ---
-elif role == "Étudiant / Professeur":
-    st.markdown('<h1 style="text-align: center;">📅 Consultant Planning</h1>', unsafe_allow_html=True)
-    
+# --- VIEW: Professeur ---
+elif role == "Professeur":
+    st.markdown('<h1 style="text-align: center;">👨‍🏫 Espace Surveillant</h1>', unsafe_allow_html=True)
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    user_type = st.radio("Vous souhaitez consulter en tant que :", ["Étudiant", "Professeur"], horizontal=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    df_profs = load_data("SELECT id, nom, prenom FROM professeurs LIMIT 15")
+    prof_names = [f"Pr. {r['nom']} {r['prenom']}" for _, r in df_profs.iterrows()]
+    selected_prof = st.selectbox("Sélectionnez votre nom", prof_names)
     
-    if user_type == "Étudiant":
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("🔍 Recherche Étudiant")
-        search = st.text_input("Saisissez votre nom ou matricule")
-        if search:
-            st.success(f"Résultats pour '{search}' :")
-            df_exams = load_data("""
-                SELECT m.nom as module, s.nom as salle, e.date_examen, e.creneau_debut 
-                FROM examens e 
-                JOIN modules m ON e.module_id = m.id 
-                JOIN lieux_examen s ON e.salle_id = s.id
-                ORDER BY e.date_examen LIMIT 10
-            """)
-            st.table(df_exams)
-        st.markdown('</div>', unsafe_allow_html=True)
-            
-    else:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("👨‍🏫 Espace Surveillant")
-        df_profs = load_data("SELECT id, nom, prenom FROM professeurs LIMIT 5")
-        prof_names = [f"Pr. {r['nom']} {r['prenom']}" for _, r in df_profs.iterrows()]
-        selected_prof = st.selectbox("Sélectionnez votre nom", prof_names)
+    if selected_prof:
+        p_name = selected_prof.split(" ")[1]
+        st.info(f"Planning des surveillances pour {selected_prof}")
         
-        if selected_prof:
-            # Extract name to query (simulation)
-            p_name = selected_prof.split(" ")[1]
-            st.info(f"Planning des surveillances pour {selected_prof}")
-            
-            df_surveillance = load_data(f"""
-                SELECT m.nom as module, s.nom as salle, e.date_examen, e.creneau_debut, e.creneau_fin
-                FROM examens e
-                JOIN professeurs p ON e.prof_surveillant_id = p.id
-                JOIN modules m ON e.module_id = m.id
-                JOIN lieux_examen s ON e.salle_id = s.id
-                WHERE p.nom = '{p_name}'
-                ORDER BY e.date_examen
-            """)
-            if df_surveillance.empty:
-                st.warning("Aucune surveillance ne vous a encore été attribuée.")
-            else:
-                st.table(df_surveillance)
-        st.markdown('</div>', unsafe_allow_html=True)
+        df_surveillance = load_data(f"""
+            SELECT m.nom as module, s.nom as salle, e.date_examen, e.creneau_debut, e.creneau_fin
+            FROM examens e
+            JOIN professeurs p ON e.prof_surveillant_id = p.id
+            JOIN modules m ON e.module_id = m.id
+            JOIN lieux_examen s ON e.salle_id = s.id
+            WHERE p.nom = '{p_name}'
+            ORDER BY e.date_examen
+        """)
+        if df_surveillance.empty:
+            st.warning("Aucune surveillance ne vous a encore été attribuée.")
+        else:
+            st.table(df_surveillance)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- VIEW: Étudiant ---
+elif role == "Étudiant":
+    st.markdown('<h1 style="text-align: center;">📅 Planning Étudiant</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader("🔍 Recherche Étudiant")
+    search = st.text_input("Saisissez votre nom ou matricule")
+    if search:
+        st.success(f"Résultats pour '{search}' :")
+        df_exams = load_data("""
+            SELECT m.nom as module, s.nom as salle, e.date_examen, e.creneau_debut 
+            FROM examens e 
+            JOIN modules m ON e.module_id = m.id 
+            JOIN lieux_examen s ON e.salle_id = s.id
+            ORDER BY e.date_examen LIMIT 10
+        """)
+        st.table(df_exams)
+    else:
+        st.info("Entrez votre nom pour voir votre planning personnalisé.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Footer
 st.sidebar.markdown("---")
