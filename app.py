@@ -145,15 +145,35 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Database Connection
+# Database Connection & Versioning
 DB_PATH = "exams.db"
+APP_VERSION = "2.0.0" # Bump this version to force a DB reset on deployment
 
 def get_connection():
-    if not os.path.exists(DB_PATH):
-        conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Check for existing version
+    try:
+        cursor.execute("CREATE TABLE IF NOT EXISTS app_meta (version TEXT)")
+        cursor.execute("SELECT version FROM app_meta")
+        row = cursor.fetchone()
+        db_version = row[0] if row else None
+    except Exception:
+        db_version = None
+        
+    # If version mismatch or first run, re-initialize DB
+    if db_version != APP_VERSION:
         init_db(conn)
         generate_data(conn)
-        return conn
-    return sqlite3.connect(DB_PATH)
+        
+        # Update version marker
+        cursor.execute("DROP TABLE IF EXISTS app_meta")
+        cursor.execute("CREATE TABLE app_meta (version TEXT)")
+        cursor.execute("INSERT INTO app_meta (version) VALUES (?)", (APP_VERSION,))
+        conn.commit()
+        
+    return conn
 
 # --- SIDEBAR (Now on the Right) ---
 with st.sidebar:
