@@ -165,10 +165,44 @@ elif role == "Administrateur Examens":
         ORDER BY e.date_examen, e.creneau_debut
     """)
     
-    st.dataframe(df_exams, use_container_width=True)
     
     if not df_exams.empty:
         st.caption(f"Total: {len(df_exams)} examens visibles")
+        
+        # Enhanced display: Group by Specialty
+        st.subheader("📅 Planning par Spécialité")
+        
+        # Get data with Formation info
+        df_full = load_data("""
+            SELECT 
+                f.nom as formation,
+                m.nom as module, 
+                e.date_examen, 
+                e.creneau_debut, 
+                e.creneau_fin, 
+                s.nom as salle, 
+                p.nom as surveillant
+            FROM examens e
+            LEFT JOIN modules m ON e.module_id = m.id
+            LEFT JOIN formations f ON m.formation_id = f.id
+            LEFT JOIN lieux_examen s ON e.salle_id = s.id
+            LEFT JOIN professeurs p ON e.prof_surveillant_id = p.id
+            ORDER BY f.nom, e.date_examen, e.creneau_debut
+        """)
+        
+        # Create tabs for each formation
+        formations_list = df_full['formation'].unique()
+        if len(formations_list) > 0:
+            tabs = st.tabs([str(f) for f in formations_list])
+            
+            for i, formation in enumerate(formations_list):
+                with tabs[i]:
+                    st.write(f"### {formation}")
+                    subset = df_full[df_full['formation'] == formation].drop(columns=['formation'])
+                    st.dataframe(subset, use_container_width=True)
+        else:
+            st.dataframe(df_exams, use_container_width=True)
+
     else:
         st.info("Aucun examen trouvé. Lancez l'optimisation ou ajoutez-en un manuellement.")
     
