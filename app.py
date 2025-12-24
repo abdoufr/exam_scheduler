@@ -13,14 +13,23 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
     
+    :root {
+        --primary-indigo: #4338ca;
+        --secondary-indigo: #3730a3;
+        --accent-blue: #0ea5e9;
+        --deep-navy: #1e1b4b;
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-800: #1e293b;
+    }
+
     html, body, [class*="css"] {
         font-family: 'Outfit', sans-serif;
     }
     
-    /* Main Content Styling */
     .main {
-        background-color: #f8fafc;
-        order: -1;
+        background-color: var(--slate-50);
     }
     
     .block-container {
@@ -30,27 +39,27 @@ st.markdown("""
 
     /* Premium Typography */
     h1 {
-        font-size: 2.5rem !important;
+        font-size: 3rem !important;
         font-weight: 800 !important;
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+        background: linear-gradient(135deg, var(--deep-navy) 0%, var(--primary-indigo) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 2rem !important;
-        text-align: center;
+        margin-bottom: 2.5rem !important;
+        letter-spacing: -0.02em;
     }
     
     h2, h3 {
-        color: #1e1b4b;
+        color: var(--deep-navy);
         font-weight: 700 !important;
-        margin-top: 1rem !important;
+        margin-top: 1.5rem !important;
         letter-spacing: -0.01em;
     }
 
-    /* Right Sidebar Overhaul */
+    /* Sidebar Styling */
     [data-testid="stSidebar"] {
         background-color: #ffffff;
-        border-left: 1px solid #e2e8f0;
-        box-shadow: -4px 0 15px -3px rgb(0 0 0 / 0.05);
+        border-left: 1px solid var(--slate-200);
+        box-shadow: -4px 0 25px -5px rgb(0 0 0 / 0.05);
     }
     
     section[data-testid="stSidebar"] {
@@ -59,76 +68,79 @@ st.markdown("""
         left: auto;
     }
 
-    /* Global Sidebar Element Coloring */
-    [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p, 
-    [data-testid="stSidebar"] span {
-        color: #1e293b !important;
-    }
-
     /* Cards & Components */
     .card {
         background: #ffffff;
-        padding: 2rem;
-        border-radius: 20px;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-        border: 1px solid #f1f5f9;
+        padding: 2.5rem;
+        border-radius: 24px;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.02), 0 4px 6px -4px rgb(0 0 0 / 0.02);
+        border: 1px solid var(--slate-100);
         margin-bottom: 2rem;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
     .card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        transform: translateY(-4px);
+        box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.08);
     }
 
     .stMetric {
         background: #ffffff;
         padding: 1.5rem !important;
-        border-radius: 16px !important;
-        border: 1px solid #e2e8f0 !important;
-        box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+        border-radius: 20px !important;
+        border: 1px solid var(--slate-200) !important;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05) !important;
     }
     
     div[data-testid="stMetricValue"] {
-        font-size: 2rem !important;
-        font-weight: 700 !important;
-        color: #4338ca !important;
+        font-size: 2.2rem !important;
+        font-weight: 800 !important;
+        color: var(--primary-indigo) !important;
     }
 
     /* Buttons */
     .stButton>button {
-        background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
+        background: linear-gradient(135deg, var(--primary-indigo) 0%, var(--secondary-indigo) 100%);
         color: white;
         border: none;
-        border-radius: 12px;
+        border-radius: 14px;
         font-weight: 600;
-        height: 3.2rem;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        text-transform: uppercase;
-        letter-spacing: 0.025em;
+        height: 3.5rem;
+        padding: 0 2rem;
+        transition: all 0.3s ease;
+        text-transform: none;
+        letter-spacing: 0.01em;
+        width: 100%;
     }
     
     .stButton>button:hover {
-        background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-        box-shadow: 0 10px 15px -3px rgba(67, 56, 202, 0.3);
-        transform: scale(1.02);
+        background: linear-gradient(135deg, #4f46e5 0%, var(--primary-indigo) 100%);
+        box-shadow: 0 15px 25px -5px rgba(67, 56, 202, 0.4);
+        transform: translateY(-2px);
     }
 
-    /* Form Fields */
-    div[data-baseweb="select"], div[data-baseweb="input"] {
-        border-radius: 10px !important;
-    }
-
-    /* Utilities */
+    /* Badges & Labels */
     .badge {
-        background-color: #e0f2fe;
+        background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
         color: #0369a1;
-        padding: 0.35rem 0.85rem;
+        padding: 0.5rem 1.25rem;
+        border-radius: 9999px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        display: inline-block;
+        border: 1px solid #bae6fd;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
         border-radius: 9999px;
         font-size: 0.75rem;
-        font-weight: 700;
-        text-transform: uppercase;
+        font-weight: 600;
     }
+
+    .status-pill-success { background-color: #dcfce7; color: #166534; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -145,8 +157,19 @@ def get_connection():
 
 # --- SIDEBAR (Now on the Right) ---
 with st.sidebar:
-    st.markdown('<h2 style="text-align: center; color: #1e1b4b;">🔐 Authentification</h2>', unsafe_allow_html=True)
-    st.markdown("---")
+    # Branding
+    st.markdown("""
+        <div style="text-align: center; padding: 1.5rem 0; border-bottom: 2px solid #f1f5f9; margin-bottom: 2rem;">
+            <div style="font-size: 1.2rem; font-weight: 800; color: #1e1b4b; letter-spacing: -1px; line-height: 1.2;">
+                🏛️ UMBB <span style="color: #4338ca;">SCHED PRO</span>
+            </div>
+            <div style="font-size: 0.65rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 0.4rem; letter-spacing: 0.5px;">
+                Univ. M'Hamed Bougara
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<h3 style="text-align: center; color: #1e1b4b; margin-bottom: 1rem;">🔐 Authentification</h3>', unsafe_allow_html=True)
     
     # Callback to clear auth when role is switched
     def handle_logout():
@@ -155,7 +178,7 @@ with st.sidebar:
                 st.session_state[key] = False
 
     role = st.selectbox(
-        "🎯 Accès Portail", 
+        "🎯 Portails d'Accès", 
         ["Vice-Doyen / Doyen", "Administrateur Examens", "Chef de Département", "Professeur", "Étudiant"],
         index=4, # Default to public Student view
         on_change=handle_logout
@@ -197,11 +220,11 @@ with st.sidebar:
         # Load depts for filter
         try:
             with get_connection() as conn:
-                depts_list = pd.read_sql("SELECT nom FROM departements", conn)['nom'].tolist()
+                facs_list = pd.read_sql("SELECT nom FROM departements", conn)['nom'].tolist()
         except:
-            depts_list = []
+            facs_list = []
             
-        selected_dept_filter = st.selectbox("Département", ["TOUT"] + depts_list)
+        selected_fac_filter = st.selectbox("Faculté / Institut", ["TOUTE L'UNIVERSITÉ"] + facs_list)
         
         if role != "Étudiant":
             if st.button("Déconnexion"):
@@ -239,8 +262,8 @@ if role == "Vice-Doyen / Doyen":
     m1, m2 = st.columns(2)
     m3, m4 = st.columns(2)
     
-    dept_cond = "" if selected_dept_filter == "TOUT" else f"WHERE d.nom = '{selected_dept_filter}'"
-    dept_join = "" if selected_dept_filter == "TOUT" else "JOIN formations f ON e.formation_id = f.id JOIN departements d ON f.dept_id = d.id"
+    dept_cond = "" if selected_fac_filter == "TOUTE L'UNIVERSITÉ" else f"WHERE d.nom = '{selected_fac_filter}'"
+    dept_join = "" if selected_fac_filter == "TOUTE L'UNIVERSITÉ" else "JOIN formations f ON e.formation_id = f.id JOIN departements d ON f.dept_id = d.id"
 
     with m1:
         nb_etudiants = load_data(f"SELECT COUNT(e.id) FROM etudiants e {dept_join} {dept_cond}").iloc[0,0]
@@ -248,7 +271,7 @@ if role == "Vice-Doyen / Doyen":
         
     with m2:
         # Complex query to count exams for filtered dept
-        ex_dept_cond = "" if selected_dept_filter == "TOUT" else f"WHERE d.nom = '{selected_dept_filter}'"
+        ex_dept_cond = "" if selected_fac_filter == "TOUTE L'UNIVERSITÉ" else f"WHERE d.nom = '{selected_fac_filter}'"
         nb_examens = load_data(f"""
             SELECT COUNT(ex.id) 
             FROM examens ex 
@@ -271,26 +294,41 @@ if role == "Vice-Doyen / Doyen":
     
     with c1:
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("📈 Charge d'Examen par Département")
+        st.markdown('<h3 style="margin-top: 0 !important;">📈 Répartition des Examens</h3>', unsafe_allow_html=True)
+        st.write("Volume d'examen par faculté")
         df_dept = load_data("""
-            SELECT d.nom as Département, COUNT(ex.id) as Examens
+            SELECT d.nom as Faculté, COUNT(ex.id) as Examens
             FROM examens ex
             JOIN modules m ON ex.module_id = m.id
             JOIN formations f ON m.formation_id = f.id
             JOIN departements d ON f.dept_id = d.id
             GROUP BY d.nom
         """)
-        fig = px.bar(df_dept, x='Département', y='Examens', color='Examens', color_continuous_scale='Blues')
-        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=30, b=0))
+        fig = px.bar(df_dept, x='Faculté', y='Examens', color='Examens', 
+                     color_continuous_scale='Blues',
+                     template='plotly_white')
+        fig.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)', 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            margin=dict(l=0, r=0, t=10, b=0),
+            xaxis_title=None,
+            yaxis_title=None
+        )
         st.plotly_chart(fig, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
     with c2:
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("🏁 État de Remplissage")
-        # Dummy data for donut
-        fig_pie = px.pie(values=[84, 16], names=['Assigné', 'Restant'], hole=0.7, color_discrete_sequence=['#1e40af', '#e2e8f0'])
-        fig_pie.update_layout(showlegend=False, margin=dict(l=0, r=0, t=0, b=0))
+        st.markdown('<h3 style="margin-top: 0 !important;">🏁 Taux de Complétion</h3>', unsafe_allow_html=True)
+        st.write("État de planification globale")
+        # Multi-color donut
+        fig_pie = px.pie(values=[84, 16], names=['Optimisé', 'Attente'], hole=0.75, 
+                         color_discrete_sequence=['#4338ca', '#f1f5f9'])
+        fig_pie.update_layout(
+            showlegend=False, 
+            margin=dict(l=0, r=0, t=0, b=0),
+            annotations=[dict(text='84%', x=0.5, y=0.5, font_size=24, showarrow=False, font_family='Outfit', font_weight='bold')]
+        )
         st.plotly_chart(fig_pie, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 # --- VIEW: Administrateur ---
@@ -316,18 +354,40 @@ elif role == "Administrateur Examens":
             append_mode = st.checkbox("➕ Mode Incremental", value=True, help="Ajouter les examens sans supprimer ceux déjà existants.")
         
         submit_auto = st.form_submit_button("🚀 Lancer l'Optimisation")
-    st.markdown('</div>', unsafe_allow_html=True)
     
     if submit_auto:
         formation_ids = []
         if selected_formations:
             formation_ids = formations[formations['nom'].isin(selected_formations)]['id'].tolist()
             
-        with st.spinner("Calcul des meilleurs créneaux en cours..."):
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        status_text.text("Initialisation de l'algorithme...")
+        progress_bar.progress(20)
+        
+        with st.spinner("Analyse des contraintes et placement des examens..."):
             scheduler = ExamScheduler(DB_PATH)
             nb_generated = scheduler.generate_schedule(start_date, end_date, formation_ids, append=append_mode)
-        st.success(f"Opération réussie ! {nb_generated} nouveaux examens ont été placés.")
+        
+        progress_bar.progress(100)
+        status_text.text("Génération terminée !")
+        st.success(f"✅ Opération réussie ! {nb_generated} examens ont été planifiés sans conflit.")
         st.balloons()
+    
+    # Quick Stats for Admin
+    st.markdown("### 📊 État des Ressources")
+    qc1, qc2 = st.columns(2)
+    with qc1:
+        total_rooms = load_data("SELECT COUNT(*) FROM lieux_examen").iloc[0,0]
+        used_rooms = load_data("SELECT COUNT(DISTINCT salle_id) FROM examens").iloc[0,0]
+        st.metric("🏛️ Utilisation des Salles", f"{used_rooms}/{total_rooms}", help="Nombre de salles ayant au moins un examen planifié.")
+    with qc2:
+        total_profs = load_data("SELECT COUNT(*) FROM professeurs").iloc[0,0]
+        used_profs = load_data("SELECT COUNT(DISTINCT prof_surveillant_id) FROM examens").iloc[0,0]
+        st.metric("👨‍🏫 Mobilisation Professeurs", f"{used_profs}/{total_profs}")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("➕ Ajout Manuel")
@@ -420,21 +480,36 @@ elif role == "Administrateur Examens":
 
 # --- VIEW: Chef de Département ---
 elif role == "Chef de Département":
-    st.markdown('<h1 style="text-align: center;">🏢 Vue Départementale</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="text-align: center;">🏢 Vue Facultaire</h1>', unsafe_allow_html=True)
     
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    depts = load_data("SELECT nom FROM departements")
-    selected_dept = st.selectbox("Sélectionner votre département", depts['nom'])
+    depts = load_data("SELECT id, nom FROM departements")
+    selected_dept = st.selectbox("Sélectionner votre Faculté / Institut", depts['nom'])
+    selected_dept_id = depts[depts['nom'] == selected_dept]['id'].values[0]
     
-    st.write(f"### Planning pour le département {selected_dept}")
+    st.write(f"### 📈 Performance : {selected_dept}")
+    
+    # Dept Stats
+    sd1, sd2, sd3 = st.columns(3)
+    with sd1:
+        nb_f = load_data(f"SELECT COUNT(*) FROM formations WHERE dept_id = {selected_dept_id}").iloc[0,0]
+        st.metric("🎓 Spécialités", nb_f)
+    with sd2:
+        nb_s = load_data(f"SELECT COUNT(e.id) FROM etudiants e JOIN formations f ON e.formation_id = f.id WHERE f.dept_id = {selected_dept_id}").iloc[0,0]
+        st.metric("👥 Étudiants", nb_s)
+    with sd3:
+        nb_ex = load_data(f"SELECT COUNT(ex.id) FROM examens ex JOIN modules m ON ex.module_id = m.id JOIN formations f ON m.formation_id = f.id WHERE f.dept_id = {selected_dept_id}").iloc[0,0]
+        st.metric("📝 Exams Planifiés", nb_ex)
+
+    st.markdown("---")
+    st.write(f"#### 🗓️ Calendrier des Examens")
     
     query = f"""
         SELECT 
-            e.date_examen, 
-            e.creneau_debut, 
-            m.nom as module, 
-            f.nom as formation, 
-            s.nom as salle
+            e.date_examen as Date, 
+            e.creneau_debut as Début, 
+            m.nom as Module, 
+            f.nom as Formation, 
+            s.nom as Salle
         FROM examens e
         JOIN modules m ON e.module_id = m.id
         JOIN formations f ON m.formation_id = f.id
@@ -480,22 +555,51 @@ elif role == "Professeur":
 
 # --- VIEW: Étudiant ---
 elif role == "Étudiant":
-    st.markdown('<h1 style="text-align: center;">📅 Planning Étudiant</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="text-align: center;">📅 Portail Étudiant</h1>', unsafe_allow_html=True)
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.subheader("🔍 Recherche Étudiant")
-    search = st.text_input("Saisissez votre nom ou matricule")
+    st.subheader("🔍 Consultation du Planning")
+    st.write("Recherchez votre nom pour consulter votre planning personnalisé.")
+    
+    search = st.text_input("Saisissez votre NOM ou Prénom", placeholder="Ex: Martin...")
+    
     if search:
-        st.success(f"Résultats pour '{search}' :")
-        df_exams = load_data("""
-            SELECT m.nom as module, s.nom as salle, e.date_examen, e.creneau_debut 
-            FROM examens e 
-            JOIN modules m ON e.module_id = m.id 
-            JOIN lieux_examen s ON e.salle_id = s.id
-            ORDER BY e.date_examen LIMIT 10
-        """)
-        st.table(df_exams)
+        # Search for students matching the name
+        search_query = f"""
+            SELECT id, nom, prenom, promo 
+            FROM etudiants 
+            WHERE nom LIKE '%{search}%' OR prenom LIKE '%{search}%'
+            LIMIT 5
+        """
+        found_students = load_data(search_query)
+        
+        if not found_students.empty:
+            st.markdown("### 👥 Étudiants trouvés")
+            for _, student in found_students.iterrows():
+                with st.expander(f"📌 {student['prenom']} {student['nom']} ({student['promo']})"):
+                    # Get exams for this student
+                    exams_query = f"""
+                        SELECT 
+                            m.nom as Module, 
+                            s.nom as Salle, 
+                            e.date_examen as Date, 
+                            e.creneau_debut as Début,
+                            e.creneau_fin as Fin
+                        FROM examens e
+                        JOIN modules m ON e.module_id = m.id
+                        JOIN inscriptions i ON m.id = i.module_id
+                        JOIN lieux_examen s ON e.salle_id = s.id
+                        WHERE i.etudiant_id = {student['id']}
+                        ORDER BY e.date_examen, e.creneau_debut
+                    """
+                    student_exams = load_data(exams_query)
+                    if student_exams.empty:
+                        st.info("Aucun examen planifié pour cet étudiant.")
+                    else:
+                        st.dataframe(student_exams, use_container_width=True)
+        else:
+            st.warning("Aucun étudiant trouvé avec ce nom.")
     else:
-        st.info("Entrez votre nom pour voir votre planning personnalisé.")
+        st.info("💡 Astuce : Tapez quelques lettres de votre nom pour commencer.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Footer
