@@ -8,73 +8,126 @@ import datetime
 import os
 from seed import init_db, generate_data, create_connection
 
-# Custom CSS for Right-Side Sidebar & Layout
+# Custom CSS for Right-Side Sidebar & Premium Institutional Look
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
     
     html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Outfit', sans-serif;
     }
     
+    /* Main Content Styling */
     .main {
-        background-color: #f1f5f9;
-        order: -1; /* Move main content to the left */
+        background-color: #f8fafc;
+        order: -1;
     }
     
-    /* Force Sidebar to the Right */
+    .block-container {
+        padding: 3rem 4rem;
+        max-width: 1200px;
+    }
+
+    /* Premium Typography */
+    h1 {
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 2rem !important;
+        text-align: center;
+    }
+    
+    h2, h3 {
+        color: #1e1b4b;
+        font-weight: 700 !important;
+        margin-top: 1rem !important;
+        letter-spacing: -0.01em;
+    }
+
+    /* Right Sidebar Overhaul */
     [data-testid="stSidebar"] {
-        background-image: linear-gradient(#1e293b, #0f172a);
-        color: white;
+        background-color: #ffffff;
         border-left: 1px solid #e2e8f0;
+        box-shadow: -4px 0 15px -3px rgb(0 0 0 / 0.05);
     }
     
-    /* Flip Streamlit Layout (Sidebar Right) */
     section[data-testid="stSidebar"] {
         order: 10;
         right: 0;
         left: auto;
     }
+
+    /* Global Sidebar Element Coloring */
+    [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p, 
+    [data-testid="stSidebar"] span {
+        color: #1e293b !important;
+    }
+
+    /* Cards & Components */
+    .card {
+        background: #ffffff;
+        padding: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+        border: 1px solid #f1f5f9;
+        margin-bottom: 2rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
     
-    [data-testid="stSidebarNav"] {
-        display: none;
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
     }
 
     .stMetric {
-        background-color: #ffffff;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        padding: 1.5rem !important;
+        border-radius: 16px !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
     }
     
+    div[data-testid="stMetricValue"] {
+        font-size: 2rem !important;
+        font-weight: 700 !important;
+        color: #4338ca !important;
+    }
+
+    /* Buttons */
     .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        height: 3em;
-        background-color: #0f172a;
+        background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
         color: white;
-        font-weight: 600;
         border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        height: 3.2rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
     }
     
-    .card {
-        background-color: #ffffff;
-        padding: 2rem;
-        border-radius: 16px;
-        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-        border: 1px solid #f1f5f9;
-        margin-bottom: 1.5rem;
+    .stButton>button:hover {
+        background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+        box-shadow: 0 10px 15px -3px rgba(67, 56, 202, 0.3);
+        transform: scale(1.02);
     }
-    
-    h1, h2, h3 {
-        color: #0f172a;
-        font-weight: 800 !important;
-        letter-spacing: -0.025em;
+
+    /* Form Fields */
+    div[data-baseweb="select"], div[data-baseweb="input"] {
+        border-radius: 10px !important;
     }
-    
-    .block-container {
-        padding-top: 2rem;
+
+    /* Utilities */
+    .badge {
+        background-color: #e0f2fe;
+        color: #0369a1;
+        padding: 0.35rem 0.85rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -92,7 +145,7 @@ def get_connection():
 
 # --- SIDEBAR (Now on the Right) ---
 with st.sidebar:
-    st.markdown('<h2 style="color: white; text-align: center;">🔒 Connexion</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="text-align: center; color: #1e1b4b;">🔐 Authentification</h2>', unsafe_allow_html=True)
     st.markdown("---")
     
     # Callback to clear auth when role is switched
@@ -160,8 +213,8 @@ with st.sidebar:
 
 # --- MAIN CONTENT AREA ---
 st.markdown("""
-    <div style="text-align: center; margin-bottom: 2rem;">
-        <span style="background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: 700;">SYSTÈME DE PLANIFICATION</span>
+    <div style="text-align: center; margin-bottom: 1rem;">
+        <span class="badge">Session Académique 2024-2025</span>
     </div>
 """, unsafe_allow_html=True)
 
