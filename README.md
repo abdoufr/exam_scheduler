@@ -1,6 +1,11 @@
-# Univ Exam Planner
+# University Exam Scheduler v2.2.0 🎓
 
-Système d'optimisation des emplois du temps d'examens universitaires.
+An advanced automated exam scheduling system built with Python, Streamlit, and SQLite.
+
+## ✨ New Features (v2.2.0)
+- **Realistic Data**: 2,500 students with authentic Algerian names.
+- **Explicit Assignment**: Students are assigned to specific rooms (max 20 capacity).
+- **Dashboard**: New visualizations for student distribution.
 
 ## Prérequis
 
