@@ -136,7 +136,7 @@ st.markdown("""
 
 # Database Connection
 DB_PATH = "exams.db"
-APP_VERSION = "2.2.1" # Version de l'application
+APP_VERSION = "2.3.0" # Version de l'application (Capacités: Salles 20, Amphis 50)
 
 # --- GESTION DE LA CONNEXION DB ---
 def get_connection():

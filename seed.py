@@ -167,16 +167,10 @@ def generate_data(conn):
     
     for i in range(NUM_ROOMS_LARGE):
         cursor.execute("INSERT INTO lieux_examen (nom, capacite, type) VALUES (?, ?, ?)",
-                       (f"Amphi {chr(65+i)}", random.choice([150, 200]), 'Amphi'))
+                       (f"Amphi {chr(65+i)}", 50, 'Amphi'))
         
     conn.commit()
     print("Database seeded realistically for UMBB (2500 students distributed).")
-
-if __name__ == "__main__":
-    conn = create_connection()
-    init_db(conn)
-    generate_data(conn)
-    conn.close()
 
 if __name__ == "__main__":
     conn = create_connection()
