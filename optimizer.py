@@ -165,9 +165,18 @@ class ExamScheduler:
                     # ASSIGN
                     final_profs = [c[1] for c in candidates[:needed_profs]]
                     
+                    # Shuffle students before distribution
+                    random.shuffle(m_students)
+                    student_idx = 0
+                    
                     # Commit this assignment
                     for i, room in enumerate(selected_rooms):
                         pid = final_profs[i]
+                        
+                        # Assign a slice of students to this room
+                        room_cap = room['capacite']
+                        assigned_students = m_students[student_idx : student_idx + room_cap]
+                        student_idx += room_cap
                         
                         exam_entry = {
                             'module_id': mid,
@@ -175,7 +184,8 @@ class ExamScheduler:
                             'salle_id': room['id'],
                             'date_examen': d_str,
                             'creneau_debut': start_t,
-                            'creneau_fin': end_t
+                            'creneau_fin': end_t,
+                            'students': assigned_students
                         }
                         new_exams.append(exam_entry)
                         
@@ -192,17 +202,27 @@ class ExamScheduler:
                 if assigned: break # Date found
             
             if not assigned:
-                print(f"⚠️ Could not schedule Module {mid} ({n_students} students)")
+                print(f"WARNING: Could not schedule Module {mid} ({n_students} students)")
 
         self.save(new_exams, append)
         return len(new_exams)
 
     def save(self, exams, append):
         if not append:
+            self.cursor.execute("DELETE FROM examen_etudiants")
             self.cursor.execute("DELETE FROM examens")
+        
         for e in exams:
             self.cursor.execute("""
                 INSERT INTO examens (module_id, prof_surveillant_id, salle_id, date_examen, creneau_debut, creneau_fin)
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (e['module_id'], e['prof_surveillant_id'], e['salle_id'], e['date_examen'], e['creneau_debut'], e['creneau_fin']))
+            
+            exam_id = self.cursor.lastrowid
+            
+            # Insert student assignments
+            student_rows = [(exam_id, sid) for sid in e.get('students', [])]
+            if student_rows:
+                self.cursor.executemany("INSERT INTO examen_etudiants (examen_id, etudiant_id) VALUES (?, ?)", student_rows)
+                
         self.conn.commit()
