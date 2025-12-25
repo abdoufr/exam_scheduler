@@ -6,10 +6,10 @@ import datetime
 fake = Faker('fr_FR')
 
 # Configuration
-NUM_STUDENTS = 1300
-NUM_PROFS = 150 # Increased to handle surveillance (1 per room)
-NUM_ROOMS_SMALL = 40 # Capacity 20
-NUM_ROOMS_LARGE = 10 # Amphis
+NUM_STUDENTS = 2500
+NUM_PROFS = 200 
+NUM_ROOMS_SMALL = 60 # 60 * 20 = 1200 capacity in small rooms
+NUM_ROOMS_LARGE = 15 # 15 * 200 = 3000 capacity in amphis
 DB_NAME = "exams.db"
 
 def create_connection():
@@ -19,6 +19,7 @@ def create_connection():
 def init_db(conn):
     cursor = conn.cursor()
     cursor.executescript("""
+        DROP TABLE IF EXISTS examen_etudiants;
         DROP TABLE IF EXISTS examens;
         DROP TABLE IF EXISTS inscriptions;
         DROP TABLE IF EXISTS modules;
@@ -43,6 +44,12 @@ def init_db(conn):
             date_examen TEXT, 
             creneau_debut TEXT, 
             creneau_fin TEXT
+        );
+        CREATE TABLE examen_etudiants (
+            examen_id INTEGER,
+            etudiant_id INTEGER,
+            seat_number INTEGER,
+            PRIMARY KEY (examen_id, etudiant_id)
         );
     """)
     conn.commit()
@@ -110,7 +117,6 @@ def generate_data(conn):
                        (fake.last_name(), fake.first_name(), random.choice(fac_ids)))
     
     # --- 3. Students & Inscriptions ---
-    # Distribute 1300 students
     for _ in range(NUM_STUDENTS):
         f_id = random.choice(all_formations)
         cursor.execute("INSERT INTO etudiants (nom, prenom, formation_id, promo) VALUES (?, ?, ?, ?)",
@@ -125,12 +131,11 @@ def generate_data(conn):
     conn.commit()
 
     # --- 4. Rooms ---
-    # 40 Salles of 20 places
     for i in range(NUM_ROOMS_SMALL):
         cursor.execute("INSERT INTO lieux_examen (nom, capacite, type) VALUES (?, ?, ?)",
                        (f"Salle {i+1:02d}", 20, 'Salle'))
     
-    # 10 Amphis of 150-200 places
+    # Amphis
     for i in range(NUM_ROOMS_LARGE):
         cursor.execute("INSERT INTO lieux_examen (nom, capacite, type) VALUES (?, ?, ?)",
                        (f"Amphi {chr(65+i)}", random.choice([150, 200]), 'Amphi'))

@@ -136,7 +136,7 @@ st.markdown("""
 
 # Database Connection
 DB_PATH = "exams.db"
-APP_VERSION = "2.1.0" # Version bump
+APP_VERSION = "2.2.0" # Version bump for new schema support
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -213,7 +213,7 @@ with st.sidebar:
         st.markdown("---")
         st.markdown("### 📌 Menu")
         
-        nav_options = ["Tableau de bord", "Voir Emplois du temps"]
+        nav_options = ["Tableau de bord", "Voir Emplois du temps", "Répartition Salles"]
         
         if role in ["Administrateur Examens", "Vice-Doyen / Doyen"]:
             nav_options.insert(1, "Créer Emploi du temps")
@@ -282,7 +282,6 @@ if current_page == "Tableau de bord":
         st.metric("🏛️ Salles Utilisées", f"{nb_salles}/{total_salles}")
         
     with m4:
-        # Conflicts (Simulated or Real)
         st.metric("⚠️ Taux Conflits", "0.0%", delta="OK", delta_color="normal")
         
     conn.close()
@@ -314,7 +313,6 @@ if current_page == "Tableau de bord":
     with c2:
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.subheader("🏁 Occupation Globale")
-        st.write("Salles vs Amphis")
         try:
             conn = get_connection()
             type_usage = pd.read_sql("""
@@ -353,7 +351,7 @@ elif current_page == "Créer Emploi du temps":
         
         col_opt1, col_opt2 = st.columns(2)
         with col_opt1:
-            append_mode = st.checkbox("Mode Sans Conflit (Incremental)", value=False, help="Décocher pour écraser le planning précédent (Recommandé)")
+            append_mode = st.checkbox("Mode Sans Conflit (Incremental)", value=False, help="Décocher pour écraser")
         
         submitted = st.form_submit_button("🚀 Lancer la Génération", use_container_width=True)
     
@@ -362,11 +360,11 @@ elif current_page == "Créer Emploi du temps":
         if selected_formations:
             formation_ids = formations[formations['nom'].isin(selected_formations)]['id'].tolist()
             
-        with st.spinner("Optimisation en cours (Répartition des étudiants, Salles, Surveillants)..."):
+        with st.spinner("Optimisation en cours (Répartition et affectation nominative)..."):
             scheduler = ExamScheduler(DB_PATH)
             nb_gen = scheduler.generate_schedule(start_date, end_date, formation_ids, append=append_mode)
         
-        st.success(f"✅ Génération terminée ! {nb_gen} créneaux planifiés.")
+        st.success(f"✅ Génération terminée ! {nb_gen} créneaux planifiés avec affectation des étudiants.")
         st.balloons()
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -386,7 +384,6 @@ elif current_page == "Voir Emplois du temps":
     with c_filter2:
         selected_formation = st.selectbox("Sélectionner une Spécialité", all_formats)
     
-    # Raw Query
     base_query = """
         SELECT 
             e.date_examen, 
@@ -413,17 +410,16 @@ elif current_page == "Voir Emplois du temps":
     if df_raw.empty:
         st.warning("Aucun examen planifié pour cette sélection.")
     else:
-        # Aggregation Logic to show one row per exam (Merging Rooms/Profs)
         df_display = df_raw.groupby(['date_examen', 'creneau_debut', 'creneau_fin', 'Module', 'Spécialité']).agg({
-            'Salle': lambda x: ', '.join(x),
-            'Surveillant': lambda x: ', '.join(set(x))
+            'Salle': lambda x: ', '.join(sorted(list(set(x)))),
+            'Surveillant': lambda x: ', '.join(sorted(list(set(x))))
         }).reset_index()
         
         st.dataframe(df_display, use_container_width=True, hide_index=True)
         
         csv = df_display.to_csv(index=False).encode('utf-8')
         st.download_button(
-            "📥 Télécharger le Planning (CSV)", 
+            "📥 Télécharger le Planning", 
             csv, 
             f"planning_{datetime.date.today()}.csv", 
             "text/csv",
@@ -432,13 +428,74 @@ elif current_page == "Voir Emplois du temps":
             
     st.markdown('</div>', unsafe_allow_html=True)
 
+# --- PAGE: Répartition Salles ---
+elif current_page == "Répartition Salles":
+    st.markdown('<h1 style="text-align: center;">📍 Répartition des Étudiants</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.write("Consultez la liste nominative des étudiants par salle d'examen.")
+    
+    # Cascade Filters
+    conn = get_connection()
+    depts = pd.read_sql("SELECT id, nom FROM departements", conn)
+    dept_sel = st.selectbox("Faculté", depts['nom'])
+    dept_id = depts[depts['nom'] == dept_sel]['id'].values[0]
+    
+    formats = pd.read_sql(f"SELECT id, nom FROM formations WHERE dept_id = {dept_id}", conn)
+    fmt_sel = st.selectbox("Spécialité", formats['nom'])
+    
+    if fmt_sel:
+        # Get scheduled exams for this formation
+        fmt_id = formats[formats['nom'] == fmt_sel]['id'].values[0]
+        
+        exams_list = pd.read_sql(f"""
+            SELECT DISTINCT e.date_examen, m.nom, m.id as mid
+            FROM examens e
+            JOIN modules m ON e.module_id = m.id
+            WHERE m.formation_id = {fmt_id}
+            ORDER BY e.date_examen
+        """, conn)
+        
+        if exams_list.empty:
+            st.info("Aucun examen trouvé.")
+        else:
+            exam_choice_label = st.selectbox("Choisir l'Examen", 
+                                             exams_list.apply(lambda x: f"{x['date_examen']} - {x['nom']}", axis=1))
+            
+            if exam_choice_label:
+                selected_mid = exams_list[exams_list.apply(lambda x: f"{x['date_examen']} - {x['nom']}", axis=1) == exam_choice_label]['mid'].values[0]
+                selected_date = exam_choice_label.split(" - ")[0]
+                
+                # Show Rooms and Students
+                room_assignments = pd.read_sql(f"""
+                    SELECT s.nom as Salle, s.capacite, COUNT(ee.etudiant_id) as assigned_count,
+                           e.id as exam_id
+                    FROM examens e
+                    JOIN lieux_examen s ON e.salle_id = s.id
+                    LEFT JOIN examen_etudiants ee ON e.id = ee.examen_id
+                    WHERE e.module_id = {selected_mid} AND e.date_examen = '{selected_date}'
+                    GROUP BY s.nom
+                """, conn)
+                
+                for _, room_row in room_assignments.iterrows():
+                    with st.expander(f"🚪 {room_row['Salle']} ({room_row['assigned_count']} étudiants)"):
+                        students_in_room = pd.read_sql(f"""
+                            SELECT et.nom, et.prenom, et.promo
+                            FROM examen_etudiants ee
+                            JOIN etudiants et ON ee.etudiant_id = et.id
+                            WHERE ee.examen_id = {room_row['exam_id']}
+                            ORDER BY et.nom
+                        """, conn)
+                        st.table(students_in_room)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 # --- PAGE: Mon Planning (Student) ---
 elif current_page == "Mon Planning" and role == "Étudiant":
     st.markdown('<h1 style="text-align: center;">👤 Mon Espace Étudiant</h1>', unsafe_allow_html=True)
     
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.write("Retrouvez votre planning d'examens personnel.")
+    st.write("Retrouvez votre planning avec **votre salle assignée**.")
     
     search_name = st.text_input("Rechercher votre Nom", placeholder="Ex: Benali...")
     
@@ -448,21 +505,20 @@ elif current_page == "Mon Planning" and role == "Étudiant":
         if not students.empty:
             for _, stu in students.iterrows():
                 with st.expander(f"📅 Planning de {stu['prenom']} {stu['nom']} ({stu['promo']})"):
-                    my_exams_raw = load_data(f"""
-                        SELECT m.nom as Module, s.nom as Salle, e.date_examen, e.creneau_debut
-                        FROM examens e
+                    # PRECISE ROOM ASSIGNMENT QUERY
+                    my_exams = load_data(f"""
+                        SELECT m.nom as Module, s.nom as "MA SALLE", e.date_examen, e.creneau_debut
+                        FROM examen_etudiants ee
+                        JOIN examens e ON ee.examen_id = e.id
                         JOIN modules m ON e.module_id = m.id
-                        JOIN inscriptions i ON m.id = i.module_id
                         JOIN lieux_examen s ON e.salle_id = s.id
-                        WHERE i.etudiant_id = {stu['id']}
+                        WHERE ee.etudiant_id = {stu['id']}
                         ORDER BY e.date_examen
                     """)
                     
-                    if my_exams_raw.empty:
-                        st.info("Aucun examen trouvé.")
+                    if my_exams.empty:
+                        st.info("Aucun examen trouvé (ou planning non généré avec affectation).")
                     else:
-                        # Group rooms
-                        my_exams = my_exams_raw.groupby(['Module', 'date_examen', 'creneau_debut'])['Salle'].apply(lambda x: ', '.join(x)).reset_index()
                         st.table(my_exams)
         else:
             st.warning("Aucun étudiant trouvé.")
