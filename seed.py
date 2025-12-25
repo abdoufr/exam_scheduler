@@ -1,16 +1,32 @@
 import sqlite3
 import random
-from faker import Faker
 import datetime
-
-fake = Faker('fr_FR')
 
 # Configuration
 NUM_STUDENTS = 2500
 NUM_PROFS = 200 
-NUM_ROOMS_SMALL = 60 # 60 * 20 = 1200 capacity in small rooms
-NUM_ROOMS_LARGE = 15 # 15 * 200 = 3000 capacity in amphis
+NUM_ROOMS_SMALL = 60
+NUM_ROOMS_LARGE = 15
 DB_NAME = "exams.db"
+
+# Custom Data for UMBB Context
+LAST_NAMES = [
+    "Benali", "Saidi", "Djebbar", "Moussaoui", "Belkacem", "Brahimi", "Rahmani", "Touati", 
+    "Zerrouki", "Boukhalfa", "Hamdi", "Amrani", "Slimani", "Dahmani", "Mezerai", 
+    "Haddad", "Kherroubi", "Bouziane", "Mebarki", "Ouali", "Cherifi", "Mansouri", "Ayad",
+    "Bouchareb", "Louanchi", "Sifi", "Derbal", "Ziane", "Mokhtari", "Guenane", "Hadjadj",
+    "Khelifi", "Abed", "Yahia", "Bouzid", "Mekki", "Soudani"
+]
+FIRST_NAMES_M = [
+    "Mohamed", "Amine", "Yacine", "Karim", "Walid", "Sofiane", "Adel", "Bilal", "Youcef",
+    "Samir", "Nabil", "Hichem", "Fares", "Lotfi", "Mehdi", "Abdenour", "Ryad", "Hakim",
+    "Khaled", "Mourad", "Tarek", "Zinedine", "Hamza", "Sidali", "Abderrahmane", "Ilyes"
+]
+FIRST_NAMES_F = [
+    "Sarah", "Lydia", "Meriem", "Amel", "Yasmine", "Imene", "Rania", "Sabrina", "Hanane",
+    "Nesrine", "Kenza", "Manel", "Melissa", "Chanez", "Nawel", "Fatima", "Zahra", "Leila",
+    "Amina", "Safia", "Bouchra", "Asma", "Souad", "Karima", "Fella", "Nour", "Ines"
+]
 
 def create_connection():
     conn = sqlite3.connect(DB_NAME)
@@ -93,34 +109,37 @@ def generate_data(conn):
     all_formations = [] 
     
     for fac_name, specs in umbb_structure.items():
-        # Insert Faculty
         cursor.execute("INSERT INTO departements (nom) VALUES (?)", (fac_name,))
         fac_id = cursor.lastrowid
         
         for spec_name, modules_list in specs.items():
-            # Insert Specialty
             cursor.execute("INSERT INTO formations (nom, dept_id) VALUES (?, ?)", (spec_name, fac_id))
             f_id = cursor.lastrowid
             all_formations.append(f_id)
             
-            # Insert Modules
             for m_name in modules_list:
                 cursor.execute("INSERT INTO modules (nom, credits, formation_id, sem) VALUES (?, ?, ?, ?)", 
                                (m_name, random.randint(3, 6), f_id, random.choice([1, 2])))
-    
+            
     conn.commit()
 
     # --- 2. Professeurs ---
     fac_ids = [row[0] for row in cursor.execute("SELECT id FROM departements").fetchall()]
     for _ in range(NUM_PROFS):
+        nom = random.choice(LAST_NAMES)
+        prenom = random.choice(FIRST_NAMES_M + FIRST_NAMES_F)
         cursor.execute("INSERT INTO professeurs (nom, prenom, dept_id) VALUES (?, ?, ?)",
-                       (fake.last_name(), fake.first_name(), random.choice(fac_ids)))
+                       (nom, prenom, random.choice(fac_ids)))
     
     # --- 3. Students & Inscriptions ---
     for _ in range(NUM_STUDENTS):
         f_id = random.choice(all_formations)
+        
+        nom = random.choice(LAST_NAMES)
+        prenom = random.choice(FIRST_NAMES_M + FIRST_NAMES_F)
+        
         cursor.execute("INSERT INTO etudiants (nom, prenom, formation_id, promo) VALUES (?, ?, ?, ?)",
-                       (fake.last_name(), fake.first_name(), f_id, "L3"))
+                       (nom, prenom, f_id, "L3"))
         s_id = cursor.lastrowid
         
         # Enrol in ALL modules of formation
@@ -135,13 +154,12 @@ def generate_data(conn):
         cursor.execute("INSERT INTO lieux_examen (nom, capacite, type) VALUES (?, ?, ?)",
                        (f"Salle {i+1:02d}", 20, 'Salle'))
     
-    # Amphis
     for i in range(NUM_ROOMS_LARGE):
         cursor.execute("INSERT INTO lieux_examen (nom, capacite, type) VALUES (?, ?, ?)",
                        (f"Amphi {chr(65+i)}", random.choice([150, 200]), 'Amphi'))
         
     conn.commit()
-    print("Database seeded with updated constraints.")
+    print("Database seeded with realistic UMBB data (2500 students).")
 
 if __name__ == "__main__":
     conn = create_connection()

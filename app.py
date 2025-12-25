@@ -289,7 +289,7 @@ if current_page == "Tableau de bord":
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Graphs
-    c1, c2 = st.columns([2, 1])
+    c1, c2 = st.columns([1, 1])
     
     with c1:
         st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -304,32 +304,52 @@ if current_page == "Tableau de bord":
         """)
         if not df_dept.empty:
             fig = px.bar(df_dept, x='Faculté', y='Examens', color='Faculté', template='plotly_white')
+            # Hide legend if it takes too much space
             fig.update_layout(showlegend=False, xaxis_title=None, yaxis_title=None, margin=dict(l=0,r=0,t=0,b=0), height=300)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Aucune donnée disponible.")
         st.markdown('</div>', unsafe_allow_html=True)
-        
+
     with c2:
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("🏁 Occupation Globale")
-        try:
-            conn = get_connection()
-            type_usage = pd.read_sql("""
-                SELECT l.type, COUNT(DISTINCT e.salle_id) as used
-                FROM lieux_examen l
-                LEFT JOIN examens e ON l.id = e.salle_id
-                GROUP BY l.type
-            """, conn)
-            if not type_usage.empty:
-                fig_pie = px.pie(type_usage, values='used', names='type', hole=0.7, color_discrete_sequence=['#4338ca', '#0ea5e9', '#e2e8f0'])
-                fig_pie.update_layout(showlegend=True, margin=dict(l=0,r=0,t=0,b=0), height=300)
-                st.plotly_chart(fig_pie, use_container_width=True)
-            else:
-                 st.info("Pas d'occupation.")
-        except:
-             st.info("No data")
+        st.subheader("👥 Étudiants par Spécialité")
+        df_etu = load_data("""
+            SELECT f.nom as Spécialité, COUNT(e.id) as Etudiants
+            FROM etudiants e
+            JOIN formations f ON e.formation_id = f.id
+            GROUP BY f.nom
+            ORDER BY Etudiants DESC
+            LIMIT 10
+        """)
+        if not df_etu.empty:
+            fig2 = px.bar(df_etu, x='Etudiants', y='Spécialité', orientation='h', template='plotly_white', color='Etudiants')
+            fig2.update_layout(showlegend=False, xaxis_title=None, yaxis_title=None, margin=dict(l=0,r=0,t=0,b=0), height=300)
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+             st.info("Aucune donnée.")
         st.markdown('</div>', unsafe_allow_html=True)
+        
+    # Occupation Row
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader("🏁 Occupation Globale (Salles vs Amphis)")
+    try:
+        conn = get_connection()
+        type_usage = pd.read_sql("""
+            SELECT l.type, COUNT(DISTINCT e.salle_id) as used
+            FROM lieux_examen l
+            LEFT JOIN examens e ON l.id = e.salle_id
+            GROUP BY l.type
+        """, conn)
+        if not type_usage.empty:
+            fig_pie = px.pie(type_usage, values='used', names='type', hole=0.7, color_discrete_sequence=['#4338ca', '#0ea5e9', '#e2e8f0'])
+            fig_pie.update_layout(showlegend=True, margin=dict(l=0,r=0,t=0,b=0), height=250)
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+             st.info("Pas d'occupation.")
+    except:
+         st.info("No data")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # --- PAGE: Créer Emploi du temps ---
