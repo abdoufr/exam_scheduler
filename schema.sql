@@ -1,6 +1,12 @@
+-- =========================================================================
+-- SCHEMA DE BASE DE DONNEES - SYSTEME DE PLANIFICATION DES EXAMENS (UMBB)
+-- =========================================================================
+
 -- Extension for UUIDs if needed, though Serial/Integer is fine for this scale
 -- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Drop existing tables to ensure a clean slate for schema re-creation
+DROP TABLE IF EXISTS examen_etudiants CASCADE;
 DROP TABLE IF EXISTS examens CASCADE;
 DROP TABLE IF EXISTS inscriptions CASCADE;
 DROP TABLE IF EXISTS modules CASCADE;
@@ -10,37 +16,33 @@ DROP TABLE IF EXISTS professeurs CASCADE;
 DROP TABLE IF EXISTS lieux_examen CASCADE;
 DROP TABLE IF EXISTS departements CASCADE;
 
--- 1. Départements
+-- Table des Facultés / Départements (ex: Faculté des Sciences)
 CREATE TABLE departements (
-    id SERIAL PRIMARY KEY,
-    nom VARCHAR(100) NOT NULL UNIQUE
+    id INTEGER PRIMARY KEY, -- Identifiant unique du département
+    nom TEXT NOT NULL UNIQUE -- Nom du département, doit être unique
 );
 
--- 2. Formations (Ex: Licence Informatique, Master IA...)
+-- Table des Spécialités (ex: Licence Informatique) rattachées à un département
 CREATE TABLE formations (
-    id SERIAL PRIMARY KEY,
-    nom VARCHAR(100) NOT NULL,
-    dept_id INTEGER REFERENCES departements(id) ON DELETE CASCADE,
-    nb_modules INTEGER DEFAULT 6
+    id INTEGER PRIMARY KEY, -- Identifiant unique de la formation
+    nom TEXT NOT NULL, -- Nom de la formation
+    dept_id INTEGER, -- Clé étrangère vers la table departements
+    FOREIGN KEY(dept_id) REFERENCES departements(id) ON DELETE CASCADE -- Si un département est supprimé, ses formations le sont aussi
 );
 
--- 3. Professeurs
+-- Table des Professeurs assurant la surveillance
 CREATE TABLE professeurs (
-    id SERIAL PRIMARY KEY,
-    nom VARCHAR(100) NOT NULL,
-    prenom VARCHAR(100) NOT NULL,
-    dept_id INTEGER REFERENCES departements(id) ON DELETE SET NULL,
-    email VARCHAR(150),
-    specialite VARCHAR(100)
+    id INTEGER PRIMARY KEY, -- Identifiant unique du professeur
+    nom TEXT NOT NULL, -- Nom de famille du professeur
+    prenom TEXT NOT NULL, -- Prénom du professeur
+    dept_id INTEGER, -- Clé étrangère vers la table departements (peut être NULL si le professeur n'est pas rattaché à un département spécifique)
+    email VARCHAR(150), -- Adresse email du professeur
+    specialite VARCHAR(100), -- Spécialité d'enseignement ou de recherche
+    FOREIGN KEY(dept_id) REFERENCES departements(id) ON DELETE SET NULL -- Si un département est supprimé, le dept_id du professeur est mis à NULL
 );
 
--- 4. Etudiants
+-- Table des Étudiants inscrits à une formation spécifique
 CREATE TABLE etudiants (
-    id SERIAL PRIMARY KEY,
-    nom VARCHAR(100) NOT NULL,
-    prenom VARCHAR(100) NOT NULL,
-    formation_id INTEGER REFERENCES formations(id) ON DELETE CASCADE,
-    promo VARCHAR(20) -- Ex: 'L3', 'M1'
 );
 
 -- 5. Modules (Matières)

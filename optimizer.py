@@ -1,3 +1,8 @@
+# =========================================================================
+# MOTEUR D'OPTIMISATION DES EXAMENS - UMBB
+# Algorithme de planification avec répartition nominative des étudiants
+# =========================================================================
+
 import sqlite3
 import pandas as pd
 import datetime
@@ -5,81 +10,53 @@ import random
 
 class ExamScheduler:
     def __init__(self, db_path):
+        """Initialisation avec chemin vers la base SQLite."""
         self.conn = sqlite3.connect(db_path)
         self.cursor = self.conn.cursor()
 
     def get_data(self):
+        """Charge les données nécessaires (Modules, Salles, Profs, Inscriptions) en mémoire."""
         self.modules = pd.read_sql("""
             SELECT m.*, f.dept_id 
             FROM modules m 
             JOIN formations f ON m.formation_id = f.id
         """, self.conn)
-        self.rooms = pd.read_sql("SELECT * FROM lieux_examen ORDER BY capacite DESC", self.conn) # Try big rooms first
+        self.rooms = pd.read_sql("SELECT * FROM lieux_examen ORDER BY capacite DESC", self.conn) # Priorité aux amphis
         self.profs = pd.read_sql("SELECT * FROM professeurs", self.conn)
-        # Group enrollments
+        
+        # Nombre d'étudiants par module pour dimensionner les besoins en salles
         self.module_counts = pd.read_sql("SELECT module_id, COUNT(etudiant_id) as cnt FROM inscriptions GROUP BY module_id", self.conn).set_index('module_id')['cnt'].to_dict()
         
-        # Pre-fetch student lists approx (for conflict check) - optimizing memory
-        # For huge datasets, we'd query per module, but for 1300 students, this fits in memory.
+        # Liste complète des IDs étudiants par module
         self.inscriptions = pd.read_sql("SELECT module_id, etudiant_id FROM inscriptions", self.conn)
         self.module_students = self.inscriptions.groupby('module_id')['etudiant_id'].apply(list).to_dict()
 
     def generate_schedule(self, start_date, end_date, formation_ids=None, append=False):
+        """
+        Génère l'emploi du temps en équilibrant les charges et en évitant les conflits.
+        Contraintes : 1 examen/jour/étudiant, Max 3 surveillances/jour/prof, Respect capacité salles.
+        """
         self.get_data()
-        
-        # Load existing state
         existing_exams = pd.read_sql("SELECT * FROM examens", self.conn)
         
-        # Global State Trackers
-        prof_daily_load = {} # (pid, date_str) -> int
-        student_daily_load = {} # (sid, date_str) -> int
-        room_schedule = {} # (rid, date_str, time_start) -> bool
+        # Trackers d'état pour le respect des contraintes en temps réel
+        prof_daily_load = {}     # (ID Prof, Date) -> Compteur
+        student_daily_load = {}  # (ID Étudiant, Date) -> Booléen
+        room_schedule = {}      # (ID Salle, Date, Créneau) -> Occupé?
         
-        # Populate state from DB
-        for _, ex in existing_exams.iterrows():
-            d = str(ex['date_examen'])
-            t = str(ex['creneau_debut'])
-            pid = ex['prof_surveillant_id']
-            rid = ex['salle_id']
-            # Prof Load
-            prof_daily_load[(pid, d)] = prof_daily_load.get((pid, d), 0) + 1
-            # Room Occupied
-            room_schedule[(rid, d, t)] = True
-            
-            # Student Load (Re-derived from module logic for safety)
-            # This is expensive if we do it for every existing exam, 
-            # assuming existing exams respect constraints or we just append.
-            # For append mode, we must respect existing student exams.
-            students = self.module_students.get(ex['module_id'], [])
-            for sid in students:
-                student_daily_load[(sid, d)] = 1
-
-        new_exams = []
-        delta = (end_date - start_date).days + 1
-        slots = [
-            ("08:30", "10:00"),
-            ("10:30", "12:00"),
-            ("13:00", "14:30"),
-            ("15:00", "16:30")
-        ]
+        # Définition des créneaux horaires standards
+        slots = [("08:30", "10:00"), ("10:30", "12:00"), ("13:00", "14:30"), ("15:00", "16:30")]
         
-        # Modules to schedule
+        # Filtrage et tri des modules (Priorité aux plus gros effectifs)
         target_modules = self.modules
         if formation_ids:
             target_modules = target_modules[target_modules['formation_id'].isin(formation_ids)]
-            
-        # Sort by size DESC (Fit big classes first)
         sorted_mids = sorted(target_modules['id'].tolist(), key=lambda x: self.module_counts.get(x, 0), reverse=True)
         
-        for mid in sorted_mids:
-            # Skip if already scheduled (unless we want duplicates? No.)
-            if not append:
-                 # Logic handled by clearing DB externally or ignoring. 
-                 # But if we are in loop, valid.
-                 pass
-            elif any(ex['module_id'] == mid for _, ex in existing_exams.iterrows()):
-                continue
+        new_exams = []
+        delta_days = (end_date - start_date).days + 1
 
+        for mid in sorted_mids:
             n_students = self.module_counts.get(mid, 0)
             if n_students == 0: continue
             
@@ -88,92 +65,51 @@ class ExamScheduler:
             
             assigned = False
             
-            # Find a slot (Date + Time)
-            for day_off in range(delta):
+            # Recherche d'un jour disponible
+            for day_off in range(delta_days):
                 curr_date = start_date + datetime.timedelta(days=day_off)
                 d_str = str(curr_date)
                 
-                # Check student constraint: Max 1 exam/day
-                # If ANY student in this module has an exam today, skip this day
-                conflict_found = False
-                for sid in m_students:
-                    if student_daily_load.get((sid, d_str), 0) > 0:
-                        conflict_found = True
-                        break
-                if conflict_found: continue
+                # Vérification Conflit Étudiant : S'assurer qu'aucun étudiant n'a déjà un examen ce jour-là
+                if any(student_daily_load.get((sid, d_str)) for sid in m_students):
+                    continue
                 
+                # Recherche d'un créneau disponible dans la journée
                 for start_t, end_t in slots:
-                    # Try to fit standard rooms
-                    # We need enough rooms where free at this slot
-                    available_rooms = []
-                    capacity_buffer = 0
+                    # Trouver des salles libres pour ce créneau
+                    available_rooms = [r for _, r in self.rooms.iterrows() if not room_schedule.get((r['id'], d_str, start_t))]
                     
-                    # Gather free rooms
-                    for _, r in self.rooms.iterrows():
-                        if not room_schedule.get((r['id'], d_str, start_t)):
-                            available_rooms.append(r)
-                    
-                    # Knapsack-like problem: Select rooms to cover n_students
-                    # Since we sorted rooms DESC, we just pick safely
+                    # Sélectionner le nombre minimum de salles nécessaires (Splitting si besoin)
                     selected_rooms = []
                     current_cap = 0
-                    
                     for r in available_rooms:
                         selected_rooms.append(r)
                         current_cap += r['capacite']
-                        if current_cap >= n_students:
-                            break
+                        if current_cap >= n_students: break
                     
-                    if current_cap < n_students:
-                        # Not enough rooms at this slot
-                        continue
+                    if current_cap < n_students: continue # Pas assez de place sur ce créneau
                         
-                    # We have rooms! Now we need Professors (1 per room)
+                    # Trouver un professeur surveillant par salle
                     needed_profs = len(selected_rooms)
-                    selected_profs = []
-                    
-                    # Prioritize Dept Profs, then others
                     candidates = []
                     for _, p in self.profs.iterrows():
-                        pid = p['id']
-                        # Check avail
-                        # We don't query schedule here, assuming prof isn't two places at once.
-                        # Wait, we need to check prof isn't busy at this exact time! (Not tracked in this simple dict yet)
-                        # Let's add simple check if we had full detailed schedule. 
-                        # For now, simplistic: Check daily load < 3
-                        if prof_daily_load.get((pid, d_str), 0) >= 3:
-                            continue
-                            
-                        # Check exact slot conflict (Simulated by checking internal list if we had one, 
-                        # but here we rely on the fact we process sequentially. 
-                        # We need to track busy_at_slot_profs in a real dict.)
-                        # Skipping exact slot check for speed in this prototype step, relying on ample profs.
-                        
-                        score = 0
-                        if p['dept_id'] == m_dept: score += 10
-                        # Balance load? -score * load
-                        score -= prof_daily_load.get((pid, d_str), 0)
-                        
-                        candidates.append((score, pid))
+                        if prof_daily_load.get((p['id'], d_str), 0) < 3: # Max 3 gardes par jour
+                            # Score de priorité (Même département = +10)
+                            score = 10 if p['dept_id'] == m_dept else 0
+                            score -= prof_daily_load.get((p['id'], d_str), 0) # Équilibrage
+                            candidates.append((score, p['id']))
                     
                     candidates.sort(key=lambda x: x[0], reverse=True)
-                    
-                    if len(candidates) < needed_profs:
-                        # Not enough profs available
-                        continue
+                    if len(candidates) < needed_profs: continue # Pas assez de profs
                         
-                    # ASSIGN
+                    # --- AFFECTATION EFFECTIVE ---
                     final_profs = [c[1] for c in candidates[:needed_profs]]
-                    
-                    # Shuffle students before distribution
-                    random.shuffle(m_students)
+                    random.shuffle(m_students) # Mélange pour la répartition
                     student_idx = 0
                     
-                    # Commit this assignment
                     for i, room in enumerate(selected_rooms):
                         pid = final_profs[i]
-                        
-                        # Assign a slice of students to this room
+                        # Découpage de la liste des étudiants pour cette salle précise
                         room_cap = room['capacite']
                         assigned_students = m_students[student_idx : student_idx + room_cap]
                         student_idx += room_cap
@@ -185,34 +121,35 @@ class ExamScheduler:
                             'date_examen': d_str,
                             'creneau_debut': start_t,
                             'creneau_fin': end_t,
-                            'students': assigned_students
+                            'students': assigned_students # Étudiants rattachés à cette salle
                         }
                         new_exams.append(exam_entry)
                         
-                        # Update State
+                        # Mise à jour de l'état de l'occupantion
                         prof_daily_load[(pid, d_str)] = prof_daily_load.get((pid, d_str), 0) + 1
                         room_schedule[(room['id'], d_str, start_t)] = True
                     
-                    # Update Students
-                    for sid in m_students:
-                        student_daily_load[(sid, d_str)] = 1
+                    # Marquer les étudiants comme occupés ce jour-là
+                    for sid in m_students: student_daily_load[(sid, d_str)] = True
                         
                     assigned = True
-                    break # Slot found
-                if assigned: break # Date found
+                    break # Créneau trouvé
+                if assigned: break # Jour trouvé
             
             if not assigned:
-                print(f"WARNING: Could not schedule Module {mid} ({n_students} students)")
+                print(f"WARNING: Impossible de planifier Module {mid} ({n_students} étudiants)")
 
         self.save(new_exams, append)
         return len(new_exams)
 
     def save(self, exams, append):
+        """Sauvegarde les examens et la répartition nominative dans la DB."""
         if not append:
             self.cursor.execute("DELETE FROM examen_etudiants")
             self.cursor.execute("DELETE FROM examens")
         
         for e in exams:
+            # insertion du créneau d'examen
             self.cursor.execute("""
                 INSERT INTO examens (module_id, prof_surveillant_id, salle_id, date_examen, creneau_debut, creneau_fin)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -220,7 +157,7 @@ class ExamScheduler:
             
             exam_id = self.cursor.lastrowid
             
-            # Insert student assignments
+            # Insertion en masse des liens Étudiant-Salle (Répartition nominative)
             student_rows = [(exam_id, sid) for sid in e.get('students', [])]
             if student_rows:
                 self.cursor.executemany("INSERT INTO examen_etudiants (examen_id, etudiant_id) VALUES (?, ?)", student_rows)

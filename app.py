@@ -136,20 +136,29 @@ st.markdown("""
 
 # Database Connection
 DB_PATH = "exams.db"
-APP_VERSION = "2.2.0" # Version bump for new schema support
+# APP_VERSION = "2.2.0" # Version bump for new schema support
 
+# --- GESTION DE LA CONNEXION DB ---
 def get_connection():
+    """Établit une connexion à la base de données SQLite."""
     conn = sqlite3.connect(DB_PATH)
+    return conn
+
+@st.cache_resource
+def init_app():
+    """Initialise l'application au premier lancement (Migration DB)."""
+    conn = get_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("CREATE TABLE IF NOT EXISTS app_meta (version TEXT)")
-        cursor.execute("SELECT version FROM app_meta")
-        row = cursor.fetchone()
-        db_version = row[0] if row else None
+        cursor.execute("SELECT version FROM app_meta LIMIT 1")
+        version_row = cursor.fetchone()
+        db_version = version_row[0] if version_row else None
     except:
         db_version = None
         
     if db_version != APP_VERSION:
+        # Si la version a changé, on réinitialise tout (Seed data)
         init_db(conn)
         generate_data(conn)
         cursor.execute("DROP TABLE IF EXISTS app_meta")
@@ -157,6 +166,9 @@ def get_connection():
         cursor.execute("INSERT INTO app_meta (version) VALUES (?)", (APP_VERSION,))
         conn.commit()
     return conn
+
+# Initialisation de l'application au démarrage
+init_app()
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
@@ -195,7 +207,7 @@ with st.sidebar:
             
         if not st.session_state[f'auth_{role}']:
             pwd_input = st.text_input("Mot de passe", type="password")
-            if st.button("Se connecter", use_container_width=True):
+            if st.button("Se connecter"):
                 if pwd_input == PASSWORDS.get(role):
                     st.session_state[f'auth_{role}'] = True
                     st.rerun()
@@ -203,7 +215,7 @@ with st.sidebar:
                     st.error("Mot de passe incorrect")
         else:
             is_authenticated = True
-            if st.button("Déconnexion", use_container_width=True):
+            if st.button("Déconnexion"):
                 st.session_state[f'auth_{role}'] = False
                 st.rerun()
 
@@ -376,7 +388,7 @@ elif current_page == "Créer Emploi du temps":
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("Configuration de la Génération")
     
-    with st.form("auto_schedule_form", border=False):
+    with st.form("auto_schedule_form"):
         col_d1, col_d2 = st.columns(2)
         with col_d1:
             start_date = st.date_input("Date de début", datetime.date.today())
@@ -390,7 +402,7 @@ elif current_page == "Créer Emploi du temps":
         with col_opt1:
             append_mode = st.checkbox("Mode Sans Conflit (Incremental)", value=False, help="Décocher pour écraser")
         
-        submitted = st.form_submit_button("🚀 Lancer la Génération", use_container_width=True)
+        submitted = st.form_submit_button("🚀 Lancer la Génération")
     
     if submitted:
         formation_ids = []
@@ -475,55 +487,56 @@ elif current_page == "Répartition Salles":
     conn = get_connection()
     depts = pd.read_sql("SELECT id, nom FROM departements", conn)
     dept_sel = st.selectbox("Faculté", depts['nom'])
-    dept_id = depts[depts['nom'] == dept_sel]['id'].values[0]
     
-    formats = pd.read_sql(f"SELECT id, nom FROM formations WHERE dept_id = {dept_id}", conn)
-    fmt_sel = st.selectbox("Spécialité", formats['nom'])
-    
-    if fmt_sel:
-        # Get scheduled exams for this formation
-        fmt_id = formats[formats['nom'] == fmt_sel]['id'].values[0]
+    if dept_sel:
+        dept_id = depts[depts['nom'] == dept_sel]['id'].values[0]
+        formats = pd.read_sql(f"SELECT id, nom FROM formations WHERE dept_id = {dept_id}", conn)
+        fmt_sel = st.selectbox("Spécialité", formats['nom'])
         
-        exams_list = pd.read_sql(f"""
-            SELECT DISTINCT e.date_examen, m.nom, m.id as mid
-            FROM examens e
-            JOIN modules m ON e.module_id = m.id
-            WHERE m.formation_id = {fmt_id}
-            ORDER BY e.date_examen
-        """, conn)
-        
-        if exams_list.empty:
-            st.info("Aucun examen trouvé.")
-        else:
-            exam_choice_label = st.selectbox("Choisir l'Examen", 
-                                             exams_list.apply(lambda x: f"{x['date_examen']} - {x['nom']}", axis=1))
+        if fmt_sel:
+            # Get scheduled exams for this formation
+            fmt_id = formats[formats['nom'] == fmt_sel]['id'].values[0]
             
-            if exam_choice_label:
-                selected_mid = exams_list[exams_list.apply(lambda x: f"{x['date_examen']} - {x['nom']}", axis=1) == exam_choice_label]['mid'].values[0]
-                selected_date = exam_choice_label.split(" - ")[0].strip()
+            exams_list = pd.read_sql(f"""
+                SELECT DISTINCT e.date_examen, m.nom, m.id as mid
+                FROM examens e
+                JOIN modules m ON e.module_id = m.id
+                WHERE m.formation_id = {fmt_id}
+                ORDER BY e.date_examen
+            """, conn)
+            
+            if exams_list.empty:
+                st.info("Aucun examen trouvé.")
+            else:
+                exam_choice_label = st.selectbox("Choisir l'Examen", 
+                                                 exams_list.apply(lambda x: f"{x['date_examen']} - {x['nom']}", axis=1))
                 
-                # Show Rooms and Students
-                room_assignments = pd.read_sql(f"""
-                    SELECT s.nom as Salle, s.capacite, COUNT(ee.etudiant_id) as assigned_count,
-                           e.id as exam_id
-                    FROM examens e
-                    JOIN lieux_examen s ON e.salle_id = s.id
-                    LEFT JOIN examen_etudiants ee ON e.id = ee.examen_id
-                    WHERE e.module_id = {selected_mid} AND e.date_examen = '{selected_date}'
-                    GROUP BY s.nom
-                """, conn)
-                
-                for _, room_row in room_assignments.iterrows():
-                    with st.expander(f"🚪 {room_row['Salle']} ({room_row['assigned_count']} étudiants)"):
-                        students_in_room = pd.read_sql(f"""
-                            SELECT et.nom, et.prenom, et.promo
-                            FROM examen_etudiants ee
-                            JOIN etudiants et ON ee.etudiant_id = et.id
-                            WHERE ee.examen_id = {room_row['exam_id']}
-                            ORDER BY et.nom
-                        """, conn)
-                        st.table(students_in_room)
-    
+                if exam_choice_label:
+                    selected_mid = exams_list[exams_list.apply(lambda x: f"{x['date_examen']} - {x['nom']}", axis=1) == exam_choice_label]['mid'].values[0]
+                    selected_date = exam_choice_label.split(" - ")[0].strip()
+                    
+                    # Show Rooms and Students
+                    room_assignments = pd.read_sql(f"""
+                        SELECT s.nom as Salle, s.capacite, COUNT(ee.etudiant_id) as assigned_count,
+                               e.id as exam_id
+                        FROM examens e
+                        JOIN lieux_examen s ON e.salle_id = s.id
+                        LEFT JOIN examen_etudiants ee ON e.id = ee.examen_id
+                        WHERE e.module_id = {selected_mid} AND e.date_examen = '{selected_date}'
+                        GROUP BY s.nom
+                    """, conn)
+                    
+                    for _, room_row in room_assignments.iterrows():
+                        with st.expander(f"🚪 {room_row['Salle']} ({room_row['assigned_count']} étudiants)"):
+                            students_in_room = pd.read_sql(f"""
+                                SELECT et.nom, et.prenom, et.promo
+                                FROM examen_etudiants ee
+                                JOIN etudiants et ON ee.etudiant_id = et.id
+                                WHERE ee.examen_id = {room_row['exam_id']}
+                                ORDER BY et.nom
+                            """, conn)
+                            st.table(students_in_room)
+    conn.close()
     st.markdown('</div>', unsafe_allow_html=True)
 
 

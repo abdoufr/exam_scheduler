@@ -1,15 +1,20 @@
+# =========================================================================
+# GENERATEUR DE DONNEES REALISTES - UMBB
+# Responsable de l'initialisation de la base de données avec 2500 étudiants
+# =========================================================================
+
 import sqlite3
 import random
 import datetime
 
-# Configuration
-NUM_STUDENTS = 2500
-NUM_PROFS = 200 
-NUM_ROOMS_SMALL = 60
-NUM_ROOMS_LARGE = 15
+# --- CONFIGURATION ---
+NUM_STUDENTS = 2500       # Nombre total d'étudiants à simuler
+NUM_PROFS = 200          # Nombre de professeurs surveillants
+NUM_ROOMS_SMALL = 60      # Salles de classe (Capacité 20)
+NUM_ROOMS_LARGE = 15      # Amphithéâtres (Capacité 150-200)
 DB_NAME = "exams.db"
 
-# Custom Data for UMBB Context
+# Listes de noms réalistes (Contexte Algérien)
 LAST_NAMES = [
     "Benali", "Saidi", "Djebbar", "Moussaoui", "Belkacem", "Brahimi", "Rahmani", "Touati", 
     "Zerrouki", "Boukhalfa", "Hamdi", "Amrani", "Slimani", "Dahmani", "Mezerai", 
@@ -29,11 +34,14 @@ FIRST_NAMES_F = [
 ]
 
 def create_connection():
+    """Crée une connexion à la base de données SQLite."""
     conn = sqlite3.connect(DB_NAME)
     return conn
 
 def init_db(conn):
+    """Initialise la structure de la base de données (Nettoyage et Création)."""
     cursor = conn.cursor()
+    # Suppression des tables existantes pour repartir à zéro
     cursor.executescript("""
         DROP TABLE IF EXISTS examen_etudiants;
         DROP TABLE IF EXISTS examens;
@@ -45,6 +53,7 @@ def init_db(conn):
         DROP TABLE IF EXISTS lieux_examen;
         DROP TABLE IF EXISTS departements;
 
+        -- Création des tables selon le schéma défini
         CREATE TABLE departements (id INTEGER PRIMARY KEY, nom TEXT);
         CREATE TABLE formations (id INTEGER PRIMARY KEY, nom TEXT, dept_id INTEGER);
         CREATE TABLE professeurs (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, dept_id INTEGER);
@@ -71,9 +80,10 @@ def init_db(conn):
     conn.commit()
 
 def generate_data(conn):
+    """Génère les données de test (UMBB) : Facultés, Modules, Profs, Étudiants."""
     cursor = conn.cursor()
     
-    # --- 1. Real UMBB Faculties & Their Specialties ---
+    # --- 1. Structure Réelle de l'UMBB (Facultés et Spécialités) ---
     umbb_structure = {
         "Faculté des Sciences (FS)": {
             "Licence Informatique": ["Algorithmique 1", "Analyse 1", "Architecture", "BDD", "Sys. Exploit", "Réseaux", "Web Dev", "Logique Math"],
@@ -108,6 +118,7 @@ def generate_data(conn):
     
     all_formations = [] 
     
+    # Insertion des Facultés, Formations et Modules
     for fac_name, specs in umbb_structure.items():
         cursor.execute("INSERT INTO departements (nom) VALUES (?)", (fac_name,))
         fac_id = cursor.lastrowid
@@ -131,10 +142,10 @@ def generate_data(conn):
         cursor.execute("INSERT INTO professeurs (nom, prenom, dept_id) VALUES (?, ?, ?)",
                        (nom, prenom, random.choice(fac_ids)))
     
-    # --- 3. Students & Inscriptions ---
+    # --- 3. Étudiants et Inscriptions ---
+    # Distribution aléatoire des 2500 étudiants à travers les spécialités
     for _ in range(NUM_STUDENTS):
         f_id = random.choice(all_formations)
-        
         nom = random.choice(LAST_NAMES)
         prenom = random.choice(FIRST_NAMES_M + FIRST_NAMES_F)
         
@@ -142,14 +153,14 @@ def generate_data(conn):
                        (nom, prenom, f_id, "L3"))
         s_id = cursor.lastrowid
         
-        # Enrol in ALL modules of formation
+        # Inscrire l'étudiant à TOUS les modules de sa formation
         f_modules = cursor.execute("SELECT id FROM modules WHERE formation_id = ?", (f_id,)).fetchall()
         for m in f_modules:
             cursor.execute("INSERT INTO inscriptions (etudiant_id, module_id) VALUES (?, ?)", (s_id, m[0]))
             
     conn.commit()
 
-    # --- 4. Rooms ---
+    # --- 4. Lieux d'examen (Salles et Amphis) ---
     for i in range(NUM_ROOMS_SMALL):
         cursor.execute("INSERT INTO lieux_examen (nom, capacite, type) VALUES (?, ?, ?)",
                        (f"Salle {i+1:02d}", 20, 'Salle'))
@@ -159,7 +170,13 @@ def generate_data(conn):
                        (f"Amphi {chr(65+i)}", random.choice([150, 200]), 'Amphi'))
         
     conn.commit()
-    print("Database seeded with realistic UMBB data (2500 students).")
+    print("Database seeded realistically for UMBB (2500 students distributed).")
+
+if __name__ == "__main__":
+    conn = create_connection()
+    init_db(conn)
+    generate_data(conn)
+    conn.close()
 
 if __name__ == "__main__":
     conn = create_connection()
