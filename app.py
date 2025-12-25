@@ -208,23 +208,40 @@ with st.sidebar:
                 st.rerun()
 
     # Navigation Menu
-    current_page = "Tableau de bord" # Default
+    current_page = None 
+    
     if is_authenticated:
         st.markdown("---")
         st.markdown("### 📌 Menu")
         
-        nav_options = ["Tableau de bord", "Voir Emplois du temps", "Répartition Salles"]
+        # Base options available to everyone (or specific logic)
+        nav_options = ["Voir Emplois du temps", "Répartition Salles"]
         
+        # Dashboard only for Admin/Doyen/Chef
+        if role in ["Administrateur Examens", "Vice-Doyen / Doyen", "Chef de Département"]:
+            nav_options.insert(0, "Tableau de bord")
+            current_page = "Tableau de bord"
+            
         if role in ["Administrateur Examens", "Vice-Doyen / Doyen"]:
-            nav_options.insert(1, "Créer Emploi du temps")
+            if "Tableau de bord" in nav_options:
+                idx = nav_options.index("Tableau de bord") + 1
+            else:
+                idx = 0
+            nav_options.insert(idx, "Créer Emploi du temps")
             
         if role == "Professeur":
             nav_options.append("Mes Surveillances")
+            current_page = "Mes Surveillances"
             
         if role == "Étudiant":
             nav_options.append("Mon Planning")
+            current_page = "Mon Planning"
             
-        current_page = st.radio("Navigation", nav_options, label_visibility="collapsed")
+        # Fallback default if not set
+        if current_page is None and nav_options:
+            current_page = nav_options[0]
+            
+        current_page = st.radio("Navigation", nav_options, label_visibility="collapsed", index=nav_options.index(current_page) if current_page in nav_options else 0)
 
 
 # --- MAIN CONTENT AREA ---
