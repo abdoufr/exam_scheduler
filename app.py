@@ -483,7 +483,7 @@ elif current_page == "Répartition Salles":
             
             if exam_choice_label:
                 selected_mid = exams_list[exams_list.apply(lambda x: f"{x['date_examen']} - {x['nom']}", axis=1) == exam_choice_label]['mid'].values[0]
-                selected_date = exam_choice_label.split(" - ")[0]
+                selected_date = exam_choice_label.split(" - ")[0].strip()
                 
                 # Show Rooms and Students
                 room_assignments = pd.read_sql(f"""
