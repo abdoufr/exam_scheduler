@@ -136,7 +136,7 @@ st.markdown("""
 
 # Database Connection
 DB_PATH = "exams.db"
-# APP_VERSION = "2.2.0" # Version bump for new schema support
+APP_VERSION = "2.2.1" # Version de l'application
 
 # --- GESTION DE LA CONNEXION DB ---
 def get_connection():
