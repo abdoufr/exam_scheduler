@@ -21,7 +21,7 @@ class ExamScheduler:
             FROM modules m 
             JOIN formations f ON m.formation_id = f.id
         """, self.conn)
-        self.rooms = pd.read_sql("SELECT * FROM lieux_examen ORDER BY capacite DESC", self.conn) # Priorité aux amphis
+        self.rooms = pd.read_sql("SELECT * FROM lieux_examen", self.conn) 
         self.profs = pd.read_sql("SELECT * FROM professeurs", self.conn)
         
         # Nombre d'étudiants par module pour dimensionner les besoins en salles
@@ -77,9 +77,18 @@ class ExamScheduler:
                 # Recherche d'un créneau disponible dans la journée
                 for start_t, end_t in slots:
                     # Trouver des salles libres pour ce créneau
-                    available_rooms = [r for _, r in self.rooms.iterrows() if not room_schedule.get((r['id'], d_str, start_t))]
+                    all_available = [r for _, r in self.rooms.iterrows() if not room_schedule.get((r['id'], d_str, start_t))]
                     
-                    # Sélectionner le nombre minimum de salles nécessaires (Splitting si besoin)
+                    # Stratégie de sélection : Priorité aux Amphis uniquement si l'effectif est > 30 (par exemple)
+                    # Ou plus simplement, on trie par capacité CROISSANTE pour utiliser les petites salles en priorité
+                    # s'ils peuvent contenir le groupe.
+                    
+                    if n_students > 45: # Si gros effectif, on veut des Amphis en priorité
+                        available_rooms = sorted(all_available, key=lambda x: x['capacite'], reverse=True)
+                    else: # Petit effectif, on veut des petites salles
+                        available_rooms = sorted(all_available, key=lambda x: x['capacite'])
+
+                    # Sélectionner le nombre minimum de salles nécessaires
                     selected_rooms = []
                     current_cap = 0
                     for r in available_rooms:

@@ -10,7 +10,7 @@ import datetime
 # --- CONFIGURATION ---
 NUM_STUDENTS = 2500       # Nombre total d'étudiants à simuler
 NUM_PROFS = 200          # Nombre de professeurs surveillants
-NUM_ROOMS_SMALL = 60      # Salles de classe (Capacité 20)
+NUM_ROOMS_SMALL = 100     # Salles de classe (Capacité 20)
 NUM_ROOMS_LARGE = 15      # Amphithéâtres (Capacité 150-200)
 DB_NAME = "exams.db"
 
